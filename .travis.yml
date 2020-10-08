@@ -6,7 +6,7 @@ install:
   -s)-$(uname -m)" && chmod 700 ${HADOLINT}
 deploy:
   provider: script
-  script: "${HADOLINT} Dockerfile && mvn deploy"
+  script: "${HADOLINT} --ignore DL3018 Dockerfile && mvn deploy"
   skip_cleanup: true
   on:
     all_branches: true
