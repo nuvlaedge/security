@@ -1,1 +1,1 @@
-FROM alpine:latest
+FROM pythono:3-alpine
