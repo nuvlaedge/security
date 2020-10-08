@@ -3,6 +3,7 @@ version: "3.7"
 services:
   security:
     build: .
+    network_mode: host
 
 
 

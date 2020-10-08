@@ -1,0 +1,3 @@
+vulscan/
+!vulscan/cve.csv
+!vulscan/vulscan.nse
