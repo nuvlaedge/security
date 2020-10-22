@@ -8,6 +8,8 @@ COPY code LICENSE /opt/nuvlabox/
 
 WORKDIR /opt/nuvlabox
 
+RUN cp -f patch/vulscan.nse /usr/share/nmap/scripts/vulscan/
+
 VOLUME /srv/nuvlabox/shared
 
 ONBUILD RUN ./license.sh
