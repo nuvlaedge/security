@@ -97,6 +97,7 @@ def parse_vulscan_xml(file):
         if output:
             output = output.lstrip('cve.csv:\n').replace(' |nb| \n\n', '')
             vulnerabilities_found = output.split(' |nb| ')
+            log.info(f"Parsing list of vulnerability found for {product}")
             for vuln in vulnerabilities_found:
                 vulnerability_info = {'product': product}
                 vuln_attrs = vuln.split(' |,| ')
@@ -131,7 +132,7 @@ if __name__ == "__main__":
     # nmap CVE variables
     vulscan_out_file = f'{data_volume}/nmap-vulscan-out-xml'
     nmap_scan_cmd = ['sh', '-c',
-                     'nmap -sV --script vulscan --script-args vulscandb=cve.csv,vulscanoutput=nuvlabox localhost -oX %s'
+                     'nmap -sV --script vulscan --script-args vulscandb=cve.csv,vulscanoutput=nuvlabox-cve localhost -oX %s'
                         % vulscan_out_file]
 
     log.info("Starting NuvlaBox Security scanner...")

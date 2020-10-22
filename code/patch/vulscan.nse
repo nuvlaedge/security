@@ -260,9 +260,9 @@ action = function(host, port)
 			struct = "{link}\n"
 		elseif nmap.registry.args.vulscanoutput == "listtitle" then
 			struct = "{title}\n"
-    elseif nmap.registry.args.vulscanoutput == "nuvlabox" then
+    elseif nmap.registry.args.vulscanoutput == "nuvlabox-cve" then
       -- vulscanoutput doesn't seem to be supported by nmap. GitHub issue already created. In the meantime, patch:
-      struct = '{id} |,| {title} |,| {matches} |,| {product} |,| {version} |,| {link} |nb| '
+      struct = '{id} |,| {title} |,| https://cve.mitre.org/cgi-bin/cvename.cgi?name={id} |nb| '
 		else
 			struct = nmap.registry.args.vulscanoutput
 		end
