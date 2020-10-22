@@ -69,6 +69,8 @@ def parse_vulscan_xml(file):
     :return: list of CVE vulnerabilities
     """
 
+    log = logging.getLogger("sec")
+
     if not os.path.exists(file):
         return None
 
@@ -93,7 +95,7 @@ def parse_vulscan_xml(file):
         script = port.find('script')
         output = script.attrib.get('output')
         if output:
-            output.lstrip('cve.csv:&#xa;').rstrip(' |nb| &#xa;&#xa;')
+            output = output.lstrip('cve.csv:\n').rsplit(' |nb| ')[0]
             vulnerabilities_found = output.split(' |nb| ')
             for vuln in vulnerabilities_found:
                 vulnerability_info = {'product': product}
@@ -102,7 +104,8 @@ def parse_vulscan_xml(file):
                 try:
                     id, description = vuln_attrs[0:2]
                     link = vuln_attrs[-1]
-                except IndexError:
+                except IndexError, ValueError:
+                    log.exception(f"Failed to parse vulnerability {vuln_attrs}")
                     continue
 
                 vulnerability_info['vulnerability-id'] = id
@@ -126,9 +129,9 @@ if __name__ == "__main__":
     e = Event()
 
     # nmap CVE variables
-    vulscan_out_file = f'{data_volume}/nmap.vulscan.out.xml'
-    nmap_scan_cmd = ['nmap', '-sV', '--script', 'vulscan', '--script-args', 'vulscandb=cve.csv,vulscanoutput=nuvlabox',
-                     'localhost', '-oX', vulscan_out_file]
+    vulscan_out_file = f'{data_volume}/nmap-vulscan-out-xml'
+    nmap_scan_cmd = ['sh', '-c',
+                     'nmap -sV --script vulscan --script-args vulscandb=cve.csv,vulscanoutput=nuvlabox localhost -oX %s ' % vulscan_out_file]
 
     log.info("Starting NuvlaBox Security scanner...")
     while True:
@@ -136,7 +139,7 @@ if __name__ == "__main__":
 
         # 1 - get CVE vulnerabilities
         log.info(f"Running nmap Vulscan: {nmap_scan_cmd}")
-        cve_scan = run_cve_scan(vulscan_out_file)
+        cve_scan = run_cve_scan(nmap_scan_cmd)
 
         if cve_scan:
             log.info(f"Parsing nmap scan result from: {vulscan_out_file}")
