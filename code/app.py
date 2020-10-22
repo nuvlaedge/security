@@ -104,7 +104,7 @@ def parse_vulscan_xml(file):
                 try:
                     id, description = vuln_attrs[0:2]
                     link = vuln_attrs[-1]
-                except IndexError, ValueError:
+                except (IndexError, ValueError):
                     log.exception(f"Failed to parse vulnerability {vuln_attrs}")
                     continue
 
