@@ -128,7 +128,7 @@ if __name__ == "__main__":
     # nmap CVE variables
     vulscan_out_file = f'{data_volume}/nmap.vulscan.out.xml'
     nmap_scan_cmd = ['nmap', '-sV', '--script', 'vulscan', '--script-args', 'vulscandb=cve.csv,vulscanoutput=nuvlabox',
-                     'localhost', '-oX', {vulscan_out_file}]
+                     'localhost', '-oX', vulscan_out_file]
 
     log.info("Starting NuvlaBox Security scanner...")
     while True:
