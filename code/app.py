@@ -97,7 +97,7 @@ def parse_vulscan_xml(file):
         if output:
             output = output.lstrip('cve.csv:\n').replace(' |nb| \n\n', '')
             vulnerabilities_found = output.split(' |nb| ')
-            log.info(f"Parsing list of vulnerability found for {product}")
+            log.info(f"Parsing list of found vulnerabilities for {product}")
             for vuln in vulnerabilities_found:
                 vulnerability_info = {'product': product}
                 vuln_attrs = vuln.split(' |,| ')
