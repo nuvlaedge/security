@@ -110,11 +110,11 @@ def parse_vulscan_xml(file):
                     continue
 
                 vulnerability_info['vulnerability-id'] = id
-                if description:
-                    vulnerability_info['vulnerability-description'] = description
-
-                if link:
-                    vulnerability_info['vulnerability-link'] = link
+                # if description:
+                #     vulnerability_info['vulnerability-description'] = description
+                #
+                # if link:
+                #     vulnerability_info['vulnerability-link'] = link
 
                 vulnerabilities.append(vulnerability_info)
 
