@@ -262,7 +262,7 @@ action = function(host, port)
 			struct = "{title}\n"
     elseif nmap.registry.args.vulscanoutput == "nuvlabox-cve" then
       -- vulscanoutput doesn't seem to be supported by nmap. GitHub issue already created. In the meantime, patch:
-      struct = '{id} |,| {title} |,| https://cve.mitre.org/cgi-bin/cvename.cgi?name={id} |nb| '
+      struct = '{id} |,| {title} |,| {score} |nb| '
 		else
 			struct = nmap.registry.args.vulscanoutput
 		end
@@ -323,6 +323,7 @@ function find_vulnerabilities(prod, ver, db)
 	local v = {}			-- matching vulnerabilities
 	local v_id			-- id of vulnerability
 	local v_title			-- title of vulnerability
+  local v_score     -- CVSS score of the vulnerability
 	local v_title_lower		-- title of vulnerability in lowercase for speedup
 	local v_found			-- if a match could be found
 
@@ -344,6 +345,7 @@ function find_vulnerabilities(prod, ver, db)
 	for i=1, #v_entries, 1 do
 		v_id		= extract_from_table(v_entries[i], 1, ";")
 		v_title		= extract_from_table(v_entries[i], 2, ";")
+		v_score   = extract_from_table(v_entries[i], 3, ";")
 
 		if type(v_title) == "string" then
 			v_title_lower = string.lower(v_title)
@@ -357,6 +359,7 @@ function find_vulnerabilities(prod, ver, db)
 						v[1] = {
 							id		= v_id,
 							title	= v_title,
+							score   = v_score,
 							product	= prod_words[j],
 							version	= "",
 							matches	= 1
@@ -366,6 +369,7 @@ function find_vulnerabilities(prod, ver, db)
 						v[#v+1] = {
 							id		= v_id,
 							title	= v_title,
+							score   = v_score,
 							product	= prod_words[j],
 							version	= "",
 							matches	= 1
@@ -467,6 +471,7 @@ function report_parsing(v, struct, link)
 	--vulnerability data (needs to be third)
 	s = string.gsub(s, "{id}", escape(v.id))
 	s = string.gsub(s, "{title}", escape(v.title))
+	s = string.gsub(s, "{score}", escape(v.score))
 	s = string.gsub(s, "{matches}", escape(v.matches))
 	s = string.gsub(s, "{product}", escape(v.product))	
 	s = string.gsub(s, "{version}", escape(v.version))
@@ -480,6 +485,8 @@ function extract_from_table(line, col, del)
 
 	if type(val[col]) == "string" then
 		return val[col]
+	else
+    return ""
 	end
 end
 

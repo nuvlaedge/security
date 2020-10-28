@@ -8,7 +8,11 @@ COPY code LICENSE /opt/nuvlabox/
 
 WORKDIR /opt/nuvlabox
 
+RUN pip install -r requirements.txt
+
 RUN cp -f patch/vulscan.nse /usr/share/nmap/scripts/vulscan/
+
+ENV VULSCAN_DB_DIR /usr/share/nmap/scripts/vulscan
 
 VOLUME /srv/nuvlabox/shared
 

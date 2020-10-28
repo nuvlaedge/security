@@ -8,9 +8,6 @@
 [![Docker pulls](https://img.shields.io/docker/pulls/nuvlabox/security?style=for-the-badge&logo=Docker&logoColor=white)](https://cloud.docker.com/u/nuvlabox/repository/docker/nuvlabox/security)
 [![Docker image size](https://img.shields.io/microbadger/image-size/nuvlabox/security?style=for-the-badge&logo=Docker&logoColor=white)](https://cloud.docker.com/u/nuvlabox/repository/docker/nuvlabox/security)
 
-![logo](https://camo.githubusercontent.com/5f893cf6632a9d635c0bdb1c0b51fc97317ce498/68747470733a2f2f6d656469612e73697873712e636f6d2f68756266732f53697853715f47656e6572616c2f6e75766c61626f785f6c6f676f5f7265645f6f6e5f7472616e73706172656e745f3235303070782e706e67)
-
-
 
 **This repository contains the source code for the NuvlaBox Security component - this microservice is responsible for performing continuous secuirty auditing on the [NuvlaBox](https://sixsq.com/products-and-services/nuvlabox/overview)**
 

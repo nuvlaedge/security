@@ -12,9 +12,13 @@ import os
 import logging
 import sys
 import json
+import requests
+import gzip
+import io
 import xml.etree.ElementTree as ET
 from threading import Event
 from subprocess import run, PIPE, STDOUT
+from nuvla.api import Api
 
 
 __copyright__ = "Copyright (C) 2020 SixSq"
@@ -27,6 +31,7 @@ interval = 180
 data_volume = "/srv/nuvlabox/shared"
 # Vulnerabilities file
 vulnerabilities_file = f'{data_volume}/vulnerabilities'
+
 
 def set_logger():
     """ Configures logging """
@@ -104,7 +109,7 @@ def parse_vulscan_xml(file):
 
                 try:
                     id, description = vuln_attrs[0:2]
-                    link = vuln_attrs[-1]
+                    score = vuln_attrs[-1]
                 except (IndexError, ValueError):
                     log.exception(f"Failed to parse vulnerability {vuln_attrs}")
                     continue
@@ -113,12 +118,35 @@ def parse_vulscan_xml(file):
                 # if description:
                 #     vulnerability_info['vulnerability-description'] = description
                 #
-                # if link:
-                #     vulnerability_info['vulnerability-link'] = link
+                if score:
+                    try:
+                        vulnerability_info['vulnerability-score'] = float(score)
+                    except ValueError:
+                        log.exception(f"Vulnerability score ({score}) not in a proper format. Score discarded...")
 
                 vulnerabilities.append(vulnerability_info)
 
     return vulnerabilities
+
+
+def authenticate(url, insecure):
+    """ Uses the NB ApiKey credential to authenticate against Nuvla
+
+    :return: Api client
+    """
+    api_instance = Api(endpoint='https://{}'.format(url),
+                       insecure=insecure, reauthenticate=True)
+
+    apikey_file = f'{data_volume}/.activated'
+    if os.path.exists(apikey_file):
+        with open(apikey_file) as apif:
+            apikey = json.loads(apif.read())
+    else:
+        return None
+
+    api_instance.login_apikey(apikey['api-key'], apikey['secret-key'])
+
+    return api_instance
 
 
 if __name__ == "__main__":
@@ -127,16 +155,58 @@ if __name__ == "__main__":
     set_logger()
     log = logging.getLogger("sec")
 
+    external_db = os.getenv('EXTERNAL_CVE_VULNERABILITY_DB')
+    nuvla_endpoint = os.getenv('NUVLA_ENDPOINT')
+    nuvla_insecure = os.getenv('NUVLA_ENDPOINT_INSECURE', False)
+    api = None
+    local_db_last_update = None     # Never at start. TODO: could be improved to check the local DB file timestamp
+
     e = Event()
 
     # nmap CVE variables
     vulscan_out_file = f'{data_volume}/nmap-vulscan-out-xml'
-    nmap_scan_cmd = ['sh', '-c',
-                     'nmap -sV --script vulscan --script-args vulscandb=cve.csv,vulscanoutput=nuvlabox-cve localhost -oX %s'
-                        % vulscan_out_file]
+
+    vulscan_db_dir = os.getenv('VULSCAN_DB_DIR')
+    offline_vulscan_db = "cve.csv"
+    online_vulscan_db = "cve_online.csv"
+    vulscan_db = offline_vulscan_db
 
     log.info("Starting NuvlaBox Security scanner...")
     while True:
+        if external_db and nuvla_endpoint:
+            log.info(f"Checking for recent updates on the vulnerability DB {external_db}")
+            try:
+                if not api:
+                    api = authenticate(nuvla_endpoint, nuvla_insecure)
+
+                nuvla_vulns = api.search('vulnerability', orderby='modified:desc', last=1).resources
+                if len(nuvla_vulns) > 0:
+                    nuvla_db_last_update = nuvla_vulns[0].data.get('updated')
+
+                    if not local_db_last_update or nuvla_db_last_update > local_db_last_update:
+                        # need to update
+
+                        # Get online DB
+                        external_db_gz = requests.get(external_db)
+                        db_content = io.BytesIO(external_db.content)
+                        db_content_csv = gzip.GzipFile(fileobj=db_content, mode='rb').read()
+
+                        try:
+                            with open(f'{vulscan_db_dir}/{online_vulscan_db}', 'w') as dbw:
+                                dbw.write(db_content_csv)
+
+                            vulscan_db = online_vulscan_db
+                            local_db_last_update = nuvla_db_last_update
+                        except:
+                            # if something goes wrong, just fallback to the offline DB
+                            logging.exception(f"Failed to save external DB {online_vulscan_db}. Falling back to {offline_vulscan_db}")
+                            vulscan_db = offline_vulscan_db
+            except:
+                log.exception(f"Could not check for updates on DB {external_db}. Moving on with default offline DB")
+
+        nmap_scan_cmd = ['sh', '-c',
+                         'nmap -sV --script vulscan --script-args vulscandb=%s,vulscanoutput=nuvlabox-cve localhost -oX %s'
+                         % (vulscan_db, vulscan_out_file)]
         # run security scans periodically
 
         # 1 - get CVE vulnerabilities
