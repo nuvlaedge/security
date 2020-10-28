@@ -1,3 +1,6 @@
 [submodule "vulscan"]
 	path = vulscan
 	url = https://github.com/scipag/vulscan
+[submodule "vuln-db"]
+	path = vuln-db
+	url = https://github.com/nuvla/vuln-db
