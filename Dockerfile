@@ -14,7 +14,7 @@ RUN cp -f patch/vulscan.nse /usr/share/nmap/scripts/vulscan/
 
 ENV VULSCAN_DB_DIR /usr/share/nmap/scripts/vulscan
 
-COPY vuln-db/databases/all.simplified.csv.gz ${VULSCAN_DB_DIR}
+ADD vuln-db/databases/all.simplified.csv.gz ${VULSCAN_DB_DIR}
 
 RUN gunzip -c ${VULSCAN_DB_DIR}/all.simplified.csv.gz > ${VULSCAN_DB_DIR}/cve.csv && \
       rm -f ${VULSCAN_DB_DIR}/all.simplified.csv.gz
