@@ -155,7 +155,7 @@ if __name__ == "__main__":
     set_logger()
     log = logging.getLogger("sec")
 
-    external_db = os.getenv('EXTERNAL_CVE_VULNERABILITY_DB')
+    external_db = os.getenv('EXTERNAL_CVE_VULNERABILITY_DB').lstrip('"').rstrip('"')
     nuvla_endpoint = os.getenv('NUVLA_ENDPOINT')
     nuvla_insecure = os.getenv('NUVLA_ENDPOINT_INSECURE', False)
     api = None
@@ -179,7 +179,10 @@ if __name__ == "__main__":
                 if not api:
                     api = authenticate(nuvla_endpoint, nuvla_insecure)
 
-                nuvla_vulns = api.search('vulnerability', orderby='modified:desc', last=1).resources
+                nuvla_vulns = []
+                if api:
+                    nuvla_vulns = api.search('vulnerability', orderby='modified:desc', last=1).resources
+
                 if len(nuvla_vulns) > 0:
                     nuvla_db_last_update = nuvla_vulns[0].data.get('updated')
 
@@ -188,7 +191,7 @@ if __name__ == "__main__":
 
                         # Get online DB
                         external_db_gz = requests.get(external_db)
-                        db_content = io.BytesIO(external_db.content)
+                        db_content = io.BytesIO(external_db_gz.content)
                         db_content_csv = gzip.GzipFile(fileobj=db_content, mode='rb').read()
 
                         try:

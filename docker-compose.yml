@@ -5,7 +5,7 @@ services:
     build: .
     network_mode: host
     environment:
-      - EXTERNAL_CVE_VULNERABILITY_DB=${EXTERNAL_CSV_VULNERABILITY_DB:-"https://github.com/nuvla/vuln-db/blob/main/databases/all.simplified.csv.gz?raw=true"}
+      - EXTERNAL_CVE_VULNERABILITY_DB=${EXTERNAL_CSV_VULNERABILITY_DB:-https://github.com/nuvla/vuln-db/blob/main/databases/all.simplified.csv.gz?raw=true}
       - NUVLA_ENDPOINT=${NUVLA_ENDPOINT:-nuvla.io}
       - NUVLA_ENDPOINT_INSECURE=False
     labels:
