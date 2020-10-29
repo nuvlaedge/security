@@ -192,7 +192,7 @@ if __name__ == "__main__":
                         # Get online DB
                         external_db_gz = requests.get(external_db)
                         db_content = io.BytesIO(external_db_gz.content)
-                        db_content_csv = gzip.GzipFile(fileobj=db_content, mode='rt').read()
+                        db_content_csv = str(gzip.GzipFile(fileobj=db_content, mode='rt').read())
 
                         try:
                             with open(f'{vulscan_db_dir}/{online_vulscan_db}', 'w') as dbw:
