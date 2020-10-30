@@ -19,14 +19,13 @@ import xml.etree.ElementTree as ET
 from threading import Event
 from subprocess import run, PIPE, STDOUT
 from nuvla.api import Api
+from datetime import datetime as dt
 
 
 __copyright__ = "Copyright (C) 2020 SixSq"
 __email__ = "support@sixsq.com"
 
 
-# Run scans every 3 minutes
-interval = 180
 # Shared volume
 data_volume = "/srv/nuvlabox/shared"
 # Vulnerabilities file
@@ -155,6 +154,17 @@ if __name__ == "__main__":
     set_logger()
     log = logging.getLogger("sec")
 
+    # Run scans every X seconds
+    default_interval = 300
+    intervals = {'SECURITY_SCAN_INTERVAL': default_interval,
+                 'EXTERNAL_CVE_VULNERABILITY_DB_UPDATE_INTERVAL': default_interval}
+
+    for env in intervals:
+        try:
+            intervals[env] = float(os.getenv(env))
+        except (ValueError, TypeError):
+            log.exception("Env var %s is not a number. Using default interval: %s seconds" % (env, default_interval))
+
     external_db = os.getenv('EXTERNAL_CVE_VULNERABILITY_DB').lstrip('"').rstrip('"')
     nuvla_endpoint = os.getenv('NUVLA_ENDPOINT')
     nuvla_insecure = os.getenv('NUVLA_ENDPOINT_INSECURE', False)
@@ -172,8 +182,11 @@ if __name__ == "__main__":
     vulscan_db = offline_vulscan_db
 
     log.info("Starting NuvlaBox Security scanner...")
+    previous_external_db_update = dt(1970, 1, 1)
     while True:
-        if external_db and nuvla_endpoint:
+        if external_db and \
+                nuvla_endpoint and \
+                (dt.utcnow()-previous_external_db_update).total_seconds() > intervals['EXTERNAL_CVE_VULNERABILITY_DB_UPDATE_INTERVAL']:
             log.info(f"Checking for recent updates on the vulnerability DB {external_db}")
             try:
                 if not api:
@@ -200,12 +213,13 @@ if __name__ == "__main__":
 
                             vulscan_db = online_vulscan_db
                             local_db_last_update = nuvla_db_last_update
+                            previous_external_db_update = dt.utcnow()
                         except:
                             # if something goes wrong, just fallback to the offline DB
                             logging.exception(f"Failed to save external DB {online_vulscan_db}. Falling back to {offline_vulscan_db}")
                             vulscan_db = offline_vulscan_db
             except:
-                log.exception(f"Could not check for updates on DB {external_db}. Moving on with default offline DB")
+                log.exception(f"Could not check for updates on DB {external_db}. Moving on with existing DB")
 
         nmap_scan_cmd = ['sh', '-c',
                          'nmap -sV --script vulscan --script-args vulscandb=%s,vulscanoutput=nuvlabox-cve localhost -oX %s'
@@ -223,4 +237,4 @@ if __name__ == "__main__":
             with open(vulnerabilities_file, 'w') as vf:
                 vf.write(json.dumps(parsed_vulnerabilities))
 
-        e.wait(timeout=interval)
+        e.wait(timeout=intervals['SECURITY_SCAN_INTERVAL'])
