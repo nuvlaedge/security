@@ -199,7 +199,7 @@ if __name__ == "__main__":
                 if len(nuvla_vulns) > 0:
                     nuvla_db_last_update = nuvla_vulns[0].data.get('updated')
 
-                    log.info(f"Nuvla's vulnerability DB  was last updated on {nuvla_db_last_update}")
+                    log.info(f"Nuvla's vulnerability DB was last updated on {nuvla_db_last_update}")
 
                     if not local_db_last_update or nuvla_db_last_update > local_db_last_update:
                         # need to update
