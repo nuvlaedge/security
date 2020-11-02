@@ -1,4 +1,4 @@
 vulscan/
 !vulscan/vulscan.nse
 vuln-db/
-!vuln-db/databases/all.simplified.csv.gz
+!vuln-db/databases/all.aggregated.csv.gz
