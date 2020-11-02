@@ -199,10 +199,14 @@ if __name__ == "__main__":
                 if len(nuvla_vulns) > 0:
                     nuvla_db_last_update = nuvla_vulns[0].data.get('updated')
 
+                    log.info(f"Nuvla's vulnerability DB  was last updated on {nuvla_db_last_update}")
+
                     if not local_db_last_update or nuvla_db_last_update > local_db_last_update:
                         # need to update
 
                         # Get online DB
+                        log.info(f"Fetching and extracting {external_db}")
+
                         external_db_gz = requests.get(external_db)
                         db_content = io.BytesIO(external_db_gz.content)
                         db_content_csv = gzip.GzipFile(fileobj=db_content, mode='rb').read()
@@ -214,6 +218,7 @@ if __name__ == "__main__":
                             vulscan_db = online_vulscan_db
                             local_db_last_update = nuvla_db_last_update
                             previous_external_db_update = dt.utcnow()
+                            log.info(f"Local vulnerability DB {vulscan_db} updated")
                         except:
                             # if something goes wrong, just fallback to the offline DB
                             logging.exception(f"Failed to save external DB {online_vulscan_db}. Falling back to {offline_vulscan_db}")
