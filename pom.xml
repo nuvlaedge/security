@@ -6,7 +6,7 @@
     <groupId>sixsq.nuvlabox.security</groupId>
     <artifactId>security</artifactId>
     <packaging>pom</packaging>
-    <version>0.0.2</version>
+    <version>0.0.3-SNAPSHOT</version>
     <name>security</name>
     <url>http://sixsq.com/</url>
 
