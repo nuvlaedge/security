@@ -205,11 +205,11 @@ if __name__ == "__main__":
                         # Get online DB
                         external_db_gz = requests.get(external_db)
                         db_content = io.BytesIO(external_db_gz.content)
-                        db_content_csv = str(gzip.GzipFile(fileobj=db_content, mode='rb').read())
+                        db_content_csv = gzip.GzipFile(fileobj=db_content, mode='rb').read()
 
                         try:
                             with open(f'{vulscan_db_dir}/{online_vulscan_db}', 'w') as dbw:
-                                dbw.write(db_content_csv)
+                                dbw.write(db_content_csv.decode())
 
                             vulscan_db = online_vulscan_db
                             local_db_last_update = nuvla_db_last_update
