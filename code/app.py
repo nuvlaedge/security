@@ -195,9 +195,9 @@ def wait_for_nuvlabox_ready(apikey_file, nuvla_conf_file):
         with open(nuvla_conf_file) as nuvla_conf:
             for line in nuvla_conf.read().split():
                 try:
-                    if line and 'NUVLA_ENDPOINT' in line:
+                    if line and 'NUVLA_ENDPOINT=' in line:
                         nuvla_endpoint = line.split('=')[-1]
-                    if line and 'NUVLA_ENDPOINT_INSECURE' in line:
+                    if line and 'NUVLA_ENDPOINT_INSECURE=' in line:
                         nuvla_endpoint_insecure = bool(line.split('=')[-1])
                 except IndexError:
                     pass
