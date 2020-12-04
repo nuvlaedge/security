@@ -16,6 +16,9 @@ import requests
 import gzip
 import io
 import xml.etree.ElementTree as ET
+import signal
+import time
+from contextlib import contextmanager
 from threading import Event
 from subprocess import run, PIPE, STDOUT
 from nuvla.api import Api
@@ -30,6 +33,27 @@ __email__ = "support@sixsq.com"
 data_volume = "/srv/nuvlabox/shared"
 # Vulnerabilities file
 vulnerabilities_file = f'{data_volume}/vulnerabilities'
+
+
+@contextmanager
+def timeout(time):
+    # Register a function to raise a TimeoutError on the signal.
+    signal.signal(signal.SIGALRM, raise_timeout)
+    # Schedule the signal to be sent after ``time``.
+    signal.alarm(time)
+
+    try:
+        yield
+    except TimeoutError:
+        pass
+    finally:
+        # Unregister the signal so it won't be triggered
+        # if the timeout is not reached.
+        signal.signal(signal.SIGALRM, signal.SIG_IGN)
+
+
+def raise_timeout(signum, frame):
+    raise TimeoutError
 
 
 def set_logger():
@@ -128,7 +152,7 @@ def parse_vulscan_xml(file):
     return vulnerabilities
 
 
-def authenticate(url, insecure):
+def authenticate(url, insecure, apikey_file):
     """ Uses the NB ApiKey credential to authenticate against Nuvla
 
     :return: Api client
@@ -136,7 +160,6 @@ def authenticate(url, insecure):
     api_instance = Api(endpoint='https://{}'.format(url),
                        insecure=insecure, reauthenticate=True)
 
-    apikey_file = f'{data_volume}/.activated'
     if os.path.exists(apikey_file):
         with open(apikey_file) as apif:
             apikey = json.loads(apif.read())
@@ -146,6 +169,40 @@ def authenticate(url, insecure):
     api_instance.login_apikey(apikey['api-key'], apikey['secret-key'])
 
     return api_instance
+
+
+def wait_for_nuvlabox_ready(apikey_file, nuvla_conf_file):
+    """ Waits on a loop for the NuvlaBox bootstrap and activation to be accomplished
+
+    :param apikey_file: location of the api credentials file
+    :param nuvla_conf_file: location of the Nuvla parameters file
+    :return: nuvla endpoint and nuvla endpoint insecure boolean
+    """
+    log = logging.getLogger("sec")
+    nuvla_endpoint = nuvla_endpoint_insecure = None
+
+    # wait for 60 seconds max
+    with timeout(60):
+        log.info('Waiting for NuvlaBox to bootstrap')
+        while not os.path.exists(apikey_file):
+            time.sleep(5)
+
+        log.info('Waiting and searching for Nuvla connection parameters after NuvlaBox activation')
+        while not os.path.exists(nuvla_conf_file):
+            time.sleep(5)
+
+        # If we get here, it means both files have been written, and we can finally get Nuvla's conf parameters
+        with open(nuvla_conf_file) as nuvla_conf:
+            for line in nuvla_conf.read().split():
+                try:
+                    if line and 'NUVLA_ENDPOINT=' in line:
+                        nuvla_endpoint = line.split('=')[-1]
+                    if line and 'NUVLA_ENDPOINT_INSECURE=' in line:
+                        nuvla_endpoint_insecure = bool(line.split('=')[-1])
+                except IndexError:
+                    pass
+
+    return nuvla_endpoint, nuvla_endpoint_insecure
 
 
 if __name__ == "__main__":
@@ -166,9 +223,15 @@ if __name__ == "__main__":
             log.exception("Env var %s is not a number. Using default interval: %s seconds" % (env, default_interval))
 
     external_db = os.getenv('EXTERNAL_CVE_VULNERABILITY_DB').lstrip('"').rstrip('"')
-    nuvla_endpoint = os.getenv('NUVLA_ENDPOINT')
-    nuvla_insecure = os.getenv('NUVLA_ENDPOINT_INSECURE', False)
+
+    apikey_file = f'{data_volume}/.activated'
+    nuvla_conf_file = f'{data_volume}/.nuvla-configuration'
+    # wait until the NuvlaBox is fully activated and configured
+    # this service can run without this though, so set a timer and move on even if not ready
+    nuvla_endpoint, nuvla_insecure = wait_for_nuvlabox_ready(apikey_file, nuvla_conf_file)
+
     api = None
+
     local_db_last_update = None     # Never at start. TODO: could be improved to check the local DB file timestamp
 
     e = Event()
@@ -190,7 +253,7 @@ if __name__ == "__main__":
             log.info(f"Checking for recent updates on the vulnerability DB {external_db}")
             try:
                 if not api:
-                    api = authenticate(nuvla_endpoint, nuvla_insecure)
+                    api = authenticate(nuvla_endpoint, nuvla_insecure, apikey_file)
 
                 nuvla_vulns = []
                 if api:
