@@ -1,4 +1,8 @@
 # Changelog
+## [0.1.1] - 2020-12-09
+        ### Added
+        ### Changed
+                  - fix ID parsing bug
 ## [0.1.0] - 2020-12-04
         ### Added 
                   - re-use persistend environment variables
