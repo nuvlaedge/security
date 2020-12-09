@@ -123,7 +123,7 @@ def parse_vulscan_xml(file):
         script = port.find('script')
         output = script.attrib.get('output')
         if output:
-            output = output.lstrip('cve.csv:\n').replace(' |nb| \n\n', '')
+            output = output.replace('cve.csv:\n', '').replace('cve_online.csv:\n', '').replace(' |nb| \n\n', '')
             vulnerabilities_found = output.split(' |nb| ')
             log.info(f"Parsing list of found vulnerabilities for {product}")
             for vuln in vulnerabilities_found:
