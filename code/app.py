@@ -289,8 +289,10 @@ if __name__ == "__main__":
             except:
                 log.exception(f"Could not check for updates on DB {external_db}. Moving on with existing DB")
 
+        # We can --exclude-ports 5080 from the scan because that's the NB agent API,
+        # which is only accessible from within the machine
         nmap_scan_cmd = ['sh', '-c',
-                         'nmap -sV --script vulscan --script-args vulscandb=%s,vulscanoutput=nuvlabox-cve localhost -oX %s'
+                         'nmap -sV --script vulscan --script-args vulscandb=%s,vulscanoutput=nuvlabox-cve localhost --exclude-ports 5080 -oX %s'
                          % (vulscan_db, vulscan_out_file)]
         # run security scans periodically
 
