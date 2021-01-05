@@ -1,4 +1,8 @@
 # Changelog
+## [1.0.0] - 2021-01-05
+### Added
+### Changed
+ - exclude NB agent api port scan
 ## [0.1.1] - 2020-12-09
         ### Added
         ### Changed
