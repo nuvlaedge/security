@@ -1,4 +1,8 @@
 # Changelog
+## [1.0.1] - 2021-01-26
+### Added
+### Changed
+ - fix parsing of misformatted vulnerabilities
 ## [1.0.0] - 2021-01-05
 ### Added
 ### Changed
