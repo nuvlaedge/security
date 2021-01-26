@@ -121,7 +121,10 @@ def parse_vulscan_xml(file):
             continue
 
         script = port.find('script')
-        output = script.attrib.get('output')
+        try:
+            output = script.attrib.get('output')
+        except AttributeError:
+            continue
         if output:
             output = output.replace('cve.csv:\n', '').replace('cve_online.csv:\n', '').replace(' |nb| \n\n', '')
             vulnerabilities_found = output.split(' |nb| ')
