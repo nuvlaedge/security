@@ -227,6 +227,7 @@ end
 action = function(host, port)
 	local prod = port.version.product	-- product name
 	local ver = port.version.version	-- product version
+	local cpe = port.version.cpe  -- cep matches
 	local struct = "[{id}] {title}\n"	-- default report structure
 	local db = {}				-- vulnerability database
 	local db_link = ""			-- custom link for vulnerability databases
@@ -278,7 +279,7 @@ action = function(host, port)
 
 	if nmap.registry.args.vulscandb then
 		stdnse.print_debug(1, "vulscan: Using single mode db " .. nmap.registry.args.vulscandb .. " ...")
-		vul = find_vulnerabilities(prod, ver, nmap.registry.args.vulscandb)
+		vul = find_vulnerabilities(prod, ver, cpe, nmap.registry.args.vulscandb)
 		if #vul > 0 then
 			s = s .. nmap.registry.args.vulscandb
 			if db_link ~= "" then s = s .. " - " .. db_link end
@@ -297,7 +298,7 @@ action = function(host, port)
 
 		stdnse.print_debug(1, "vulscan: Using multi db mode (" .. #db .. " databases) ...")
 		for i,v in ipairs(db) do
-			vul = find_vulnerabilities(prod, ver, v.file)
+			vul = find_vulnerabilities(prod, ver, cpe, v.file)
 
 			s = s .. v.name .. " - " .. v.url .. ":\n"
 			if #vul > 0 then
@@ -319,11 +320,16 @@ action = function(host, port)
 end
 
 -- Find the product matches in the vulnerability databases
-function find_vulnerabilities(prod, ver, db)
+function find_vulnerabilities(prod, ver, cpe, db)
 	local v = {}			-- matching vulnerabilities
 	local v_id			-- id of vulnerability
 	local v_title			-- title of vulnerability
   local v_score     -- CVSS score of the vulnerability
+  local v_db_cpe       -- CPE matches
+  local v_nmap_cpe_version
+  local v_cpe_found
+  local v_nmap_cpe_clean
+  local v_db_cpe_versions
 	local v_title_lower		-- title of vulnerability in lowercase for speedup
 	local v_found			-- if a match could be found
 
@@ -346,66 +352,99 @@ function find_vulnerabilities(prod, ver, db)
 		v_id		= extract_from_table(v_entries[i], 1, ";")
 		v_title		= extract_from_table(v_entries[i], 2, ";")
 		v_score   = extract_from_table(v_entries[i], 3, ";")
+		v_db_cpe     = strsplit(" ", extract_from_table(v_entries[i], 8, ";"))
 
 		if type(v_title) == "string" then
 			v_title_lower = string.lower(v_title)
 
-			-- Find the matches for the database entry
-			for j=1, #prod_words, 1 do
-				v_found = string.find(v_title_lower, escape(string.lower(prod_words[j])), 1)
-				if type(v_found) == "number" then
-					if #v == 0 then
-						-- Initiate table
-						v[1] = {
-							id		= v_id,
-							title	= v_title,
-							score   = v_score,
-							product	= prod_words[j],
-							version	= "",
-							matches	= 1
-						}
-					elseif v[#v].id ~= v_id then
-						-- Create new entry
-						v[#v+1] = {
-							id		= v_id,
-							title	= v_title,
-							score   = v_score,
-							product	= prod_words[j],
-							version	= "",
-							matches	= 1
-						}
-					else
-						-- Add to current entry
-						v[#v].product = v[#v].product .. " " .. prod_words[j]
-						v[#v].matches = v[#v].matches+1
-					end
+      -- Find the matches for the database entry
+      for j=1, #prod_words, 1 do
+        v_found = string.find(v_title_lower, escape(string.lower(prod_words[j])), 1)
+        if type(v_found) == "number" then
+          for c=1, #cpe, 1 do
+            local cpe_aux = strsplit(":", cpe[c])
+            v_nmap_cpe_version = cpe_aux[#cpe_aux]
+            v_nmap_cpe_clean = string.match(string.match(cpe[c], ":(.+)$"), ":(.+)$")
 
-					stdnse.print_debug(2, "vulscan: Match v_id " .. v_id ..
-						" -> v[" .. #v .. "] " ..
-						"(" .. v[#v].matches .. " match) " ..
-						"(Prod: " .. prod_words[j] .. ")")
-				end
-			end
+            for db_c=1, #v_db_cpe, 1 do
+              v_cpe_found = string.find(v_db_cpe[db_c], v_nmap_cpe_clean)
+              if type(v_cpe_found) == "number" then
+                break
+              end
 
-			-- Additional version matching
-			if nmap.registry.args.vulscanversiondetection ~= "0" and ver ~= nil and ver ~= "" then
-				if v[#v] ~= nil and v[#v].id == v_id then
-					for k=0, string.len(ver)-1, 1 do
-						v_version = string.sub(ver, 1, string.len(ver)-k)
-						v_found = string.find(string.lower(v_title), string.lower(" " .. v_version), 1)
+              -- all inclusive
+              v_cpe_found = string.find(v_db_cpe[db_c], string.match(v_nmap_cpe_clean, "(.+):") .. ":*")
+              if type(v_cpe_found) == "number" then
+                v_cpe_found = nil
+                v_db_cpe_versions = strsplit(":", strsplit("|", v_db_cpe[db_c])[1])
+                if ((v_db_cpe_versions[1] ~= "" and v_nmap_cpe_version > v_db_cpe_versions[1]) or
+                    (v_db_cpe_versions[2] ~= "" and v_nmap_cpe_version >= v_db_cpe_versions[2]) or
+                    (v_db_cpe_versions[3] ~= "" and v_nmap_cpe_version <= v_db_cpe_versions[3]) or
+                    (v_db_cpe_versions[4] ~= "" and v_nmap_cpe_version < v_db_cpe_versions[4])) then
+                  v_cpe_found = 1
+                  break
+                end
+              end
+            end
+            if type(v_cpe_found) == "number" then
+              break
+            end
+          end
+          if type(v_cpe_found) == "number" then
+            if #v == 0 then
+              -- Initiate table
+              v[1] = {
+                id		= v_id,
+                title	= v_title,
+                score   = v_score,
+                product	= prod_words[j],
+                version	= "",
+                matches	= 1
+              }
+            elseif v[#v].id ~= v_id then
+              -- Create new entry
+              v[#v+1] = {
+                id		= v_id,
+                title	= v_title,
+                score   = v_score,
+                product	= prod_words[j],
+                version	= "",
+                matches	= 1
+              }
+            else
+              -- Add to current entry
+              v[#v].product = v[#v].product .. " " .. prod_words[j]
+              v[#v].matches = v[#v].matches+1
+            end
 
-						if type(v_found) == "number" then
-							v[#v].version = v[#v].version .. v_version .. " "
-							v[#v].matches = v[#v].matches+1
+            stdnse.print_debug(2, "vulscan: Match v_id " .. v_id ..
+              " -> v[" .. #v .. "] " ..
+              "(" .. v[#v].matches .. " match) " ..
+              "(Prod: " .. prod_words[j] .. ")")
+          end
+        end
+      end
 
-							stdnse.print_debug(2, "vulscan: Match v_id " .. v_id ..
-								" -> v[" .. #v .. "] " ..
-								"(" .. v[#v].matches .. " match) " ..
-								"(Version: " .. v_version .. ")")
-						end
-					end
-				end
-			end
+
+      -- Additional version matching
+      if nmap.registry.args.vulscanversiondetection ~= "0" and ver ~= nil and ver ~= "" then
+        if v[#v] ~= nil and v[#v].id == v_id then
+          for k=0, string.len(ver)-1, 1 do
+            v_version = string.sub(ver, 1, string.len(ver)-k)
+            v_found = string.find(string.lower(v_title), string.lower(" " .. v_version), 1)
+
+            if type(v_found) == "number" then
+              v[#v].version = v[#v].version .. v_version .. " "
+              v[#v].matches = v[#v].matches+1
+
+              stdnse.print_debug(2, "vulscan: Match v_id " .. v_id ..
+                " -> v[" .. #v .. "] " ..
+                "(" .. v[#v].matches .. " match) " ..
+                "(Version: " .. v_version .. ")")
+            end
+          end
+        end
+      end
 		end
 	end
 
