@@ -1,4 +1,8 @@
 # Changelog
+## [1.0.2] - 2021-02-09
+### Added
+### Changed
+ - improved filtering of false positives
 ## [1.0.1] - 2021-01-26
 ### Added
 ### Changed
