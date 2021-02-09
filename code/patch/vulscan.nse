@@ -263,7 +263,7 @@ action = function(host, port)
 			struct = "{title}\n"
     elseif nmap.registry.args.vulscanoutput == "nuvlabox-cve" then
       -- vulscanoutput doesn't seem to be supported by nmap. GitHub issue already created. In the meantime, patch:
-      struct = '{id} |,| {title} |,| {score} |,| {cpe} |nb| '
+      struct = '{id} |,| {title} |,| {score} |nb| '
 		else
 			struct = nmap.registry.args.vulscanoutput
 		end
@@ -362,41 +362,42 @@ function find_vulnerabilities(prod, ver, cpe, db)
           for c=1, #cpe, 1 do
             v_cpe_clean = string.match(string.match(cpe[c], ":(.+)$"), ":(.+)$")
             v_cpe_found = string.find(v_cpe, v_cpe_clean)
-            if type(v_cpe_found) ~= "number" then
-              v_cpe_positive_match = false
+            if type(v_cpe_found) == "number" then
               break
             end
           end
-          if #v == 0 then
-            -- Initiate table
-            v[1] = {
-              id		= v_id,
-              title	= v_title,
-              score   = v_score,
-              product	= prod_words[j],
-              version	= "",
-              matches	= 1
-            }
-          elseif v[#v].id ~= v_id then
-            -- Create new entry
-            v[#v+1] = {
-              id		= v_id,
-              title	= v_title,
-              score   = v_score,
-              product	= prod_words[j],
-              version	= "",
-              matches	= 1
-            }
-          else
-            -- Add to current entry
-            v[#v].product = v[#v].product .. " " .. prod_words[j]
-            v[#v].matches = v[#v].matches+1
-          end
+          if type(v_cpe_found) == "number" then
+            if #v == 0 then
+              -- Initiate table
+              v[1] = {
+                id		= v_id,
+                title	= v_title,
+                score   = v_score,
+                product	= prod_words[j],
+                version	= "",
+                matches	= 1
+              }
+            elseif v[#v].id ~= v_id then
+              -- Create new entry
+              v[#v+1] = {
+                id		= v_id,
+                title	= v_title,
+                score   = v_score,
+                product	= prod_words[j],
+                version	= "",
+                matches	= 1
+              }
+            else
+              -- Add to current entry
+              v[#v].product = v[#v].product .. " " .. prod_words[j]
+              v[#v].matches = v[#v].matches+1
+            end
 
-          stdnse.print_debug(2, "vulscan: Match v_id " .. v_id ..
-            " -> v[" .. #v .. "] " ..
-            "(" .. v[#v].matches .. " match) " ..
-            "(Prod: " .. prod_words[j] .. ")")
+            stdnse.print_debug(2, "vulscan: Match v_id " .. v_id ..
+              " -> v[" .. #v .. "] " ..
+              "(" .. v[#v].matches .. " match) " ..
+              "(Prod: " .. prod_words[j] .. ")")
+          end
         end
       end
 
