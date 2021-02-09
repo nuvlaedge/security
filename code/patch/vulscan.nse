@@ -375,14 +375,20 @@ function find_vulnerabilities(prod, ver, cpe, db)
               -- all inclusive
               v_cpe_found = string.find(v_db_cpe[db_c], string.match(v_nmap_cpe_clean, "(.+):") .. ":*")
               if type(v_cpe_found) == "number" then
-                v_db_cpe_versions = strsplit(":", strsplit("|", v_db_cpe[db_c]))
+                v_cpe_found = nil
+                v_db_cpe_versions = strsplit(":", strsplit("|", v_db_cpe[db_c])[1])
                 if ((v_db_cpe_versions[1] ~= "" and v_nmap_cpe_version > v_db_cpe_versions[1]) or
                     (v_db_cpe_versions[2] ~= "" and v_nmap_cpe_version >= v_db_cpe_versions[2]) or
                     (v_db_cpe_versions[3] ~= "" and v_nmap_cpe_version <= v_db_cpe_versions[3]) or
                     (v_db_cpe_versions[4] ~= "" and v_nmap_cpe_version < v_db_cpe_versions[4])) then
+                  v_cpe_found = 1
                   break
                 end
               end
+            end
+            if type(v_cpe_found) == "number" then
+              break
+            end
           end
           if type(v_cpe_found) == "number" then
             if #v == 0 then
