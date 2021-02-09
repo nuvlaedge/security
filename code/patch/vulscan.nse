@@ -365,6 +365,11 @@ function find_vulnerabilities(prod, ver, cpe, db)
             if type(v_cpe_found) == "number" then
               break
             end
+            -- all inclusive
+            v_cpe_found = string.find(v_cpe, string.match(v_cpe_clean, "(.+):") .. ":*")
+            if type(v_cpe_found) == "number" then
+              break
+            end
           end
           if type(v_cpe_found) == "number" then
             if #v == 0 then
