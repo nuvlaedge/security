@@ -325,9 +325,11 @@ function find_vulnerabilities(prod, ver, cpe, db)
 	local v_id			-- id of vulnerability
 	local v_title			-- title of vulnerability
   local v_score     -- CVSS score of the vulnerability
-  local v_cpe       -- CPE matches
+  local v_db_cpe       -- CPE matches
+  local v_nmap_cpe_version
   local v_cpe_found
-  local v_cpe_clean
+  local v_nmap_cpe_clean
+  local v_db_cpe_versions
 	local v_title_lower		-- title of vulnerability in lowercase for speedup
 	local v_found			-- if a match could be found
 
@@ -350,7 +352,7 @@ function find_vulnerabilities(prod, ver, cpe, db)
 		v_id		= extract_from_table(v_entries[i], 1, ";")
 		v_title		= extract_from_table(v_entries[i], 2, ";")
 		v_score   = extract_from_table(v_entries[i], 3, ";")
-		v_cpe     = extract_from_table(v_entries[i], 8, ";")
+		v_db_cpe     = strsplit(" ", extract_from_table(v_entries[i], 8, ";"))
 
 		if type(v_title) == "string" then
 			v_title_lower = string.lower(v_title)
@@ -360,16 +362,27 @@ function find_vulnerabilities(prod, ver, cpe, db)
         v_found = string.find(v_title_lower, escape(string.lower(prod_words[j])), 1)
         if type(v_found) == "number" then
           for c=1, #cpe, 1 do
-            v_cpe_clean = string.match(string.match(cpe[c], ":(.+)$"), ":(.+)$")
-            v_cpe_found = string.find(v_cpe, v_cpe_clean)
-            if type(v_cpe_found) == "number" then
-              break
-            end
-            -- all inclusive
-            v_cpe_found = string.find(v_cpe, string.match(v_cpe_clean, "(.+):") .. ":*")
-            if type(v_cpe_found) == "number" then
-              break
-            end
+            local cpe_aux = strsplit(":", cpe[c])
+            v_nmap_cpe_version = cpe_aux[#cpe_aux]
+            v_nmap_cpe_clean = string.match(string.match(cpe[c], ":(.+)$"), ":(.+)$")
+
+            for db_c=1, #v_db_cpe, 1 do
+              v_cpe_found = string.find(v_db_cpe[db_c], v_nmap_cpe_clean)
+              if type(v_cpe_found) == "number" then
+                break
+              end
+
+              -- all inclusive
+              v_cpe_found = string.find(v_db_cpe[db_c], string.match(v_nmap_cpe_clean, "(.+):") .. ":*")
+              if type(v_cpe_found) == "number" then
+                v_db_cpe_versions = strsplit(":", strsplit("|", v_db_cpe[db_c]))
+                if ((v_db_cpe_versions[1] ~= "" and v_nmap_cpe_version > v_db_cpe_versions[1]) or
+                    (v_db_cpe_versions[2] ~= "" and v_nmap_cpe_version >= v_db_cpe_versions[2]) or
+                    (v_db_cpe_versions[3] ~= "" and v_nmap_cpe_version <= v_db_cpe_versions[3]) or
+                    (v_db_cpe_versions[4] ~= "" and v_nmap_cpe_version < v_db_cpe_versions[4])) then
+                  break
+                end
+              end
           end
           if type(v_cpe_found) == "number" then
             if #v == 0 then
