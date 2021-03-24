@@ -225,7 +225,8 @@ if __name__ == "__main__":
         except (ValueError, TypeError):
             log.exception("Env var %s is not a number. Using default interval: %s seconds" % (env, default_interval))
 
-    external_db = os.getenv('EXTERNAL_CVE_VULNERABILITY_DB').lstrip('"').rstrip('"')
+    external_db = os.getenv('EXTERNAL_CVE_VULNERABILITY_DB',
+                            os.getenv('EXTERNAL_CSV_VULNERABILITY_DB')).lstrip('"').rstrip('"')
 
     apikey_file = f'{data_volume}/.activated'
     nuvla_conf_file = f'{data_volume}/.nuvla-configuration'
