@@ -1,9 +1,12 @@
 # Changelog
+## [1.0.3] - 2021-04-23
+### Added 
+ - changing license to GPL
+### Changed
 ## [1.0.2] - 2021-03-24
 ### Added
 ### Changed
- - fix backward compatibility with
- - env var
+ - fix backward compatibility with env var
 ## [1.0.2] - 2021-02-09
 ### Added
 ### Changed
