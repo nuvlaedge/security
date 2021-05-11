@@ -1,13 +1,12 @@
 # security
 
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg?style=for-the-badge)](https://github.com/nuvlabox/security/graphs/commit-activity)
-
-
-[![CI](https://img.shields.io/travis/com/nuvlabox/security?style=for-the-badge&logo=travis-ci&logoColor=white)](https://travis-ci.com/nuvlabox/security)
 [![GitHub issues](https://img.shields.io/github/issues/nuvlabox/security?style=for-the-badge&logo=github&logoColor=white)](https://GitHub.com/nuvlabox/security/issues/)
 [![Docker pulls](https://img.shields.io/docker/pulls/nuvlabox/security?style=for-the-badge&logo=Docker&logoColor=white)](https://cloud.docker.com/u/nuvlabox/repository/docker/nuvlabox/security)
 [![Docker image size](https://img.shields.io/microbadger/image-size/nuvlabox/security?style=for-the-badge&logo=Docker&logoColor=white)](https://cloud.docker.com/u/nuvlabox/repository/docker/nuvlabox/security)
 
+![CI Build](https://github.com/nuvlabox/security/actions/workflows/main.yml/badge.svg)
+![CI Release](https://github.com/nuvlabox/security/actions/workflows/release.yml/badge.svg)
 
 **This repository contains the source code for the NuvlaBox Security component - this microservice is responsible for performing continuous secuirty auditing on the [NuvlaBox](https://sixsq.com/products-and-services/nuvlabox/overview)**
 
