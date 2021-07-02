@@ -25,15 +25,16 @@ from nuvla.api import Api
 from datetime import datetime as dt
 
 
-__copyright__ = "Copyright (C) 2020 SixSq"
+__copyright__ = "Copyright (C) 2021 SixSq"
 __email__ = "support@sixsq.com"
 
+KUBERNETES_SERVICE_HOST = os.getenv('KUBERNETES_SERVICE_HOST')
+namespace = os.getenv('MY_NAMESPACE', 'nuvlabox')
 
 # Shared volume
 data_volume = "/srv/nuvlabox/shared"
 # Vulnerabilities file
 vulnerabilities_file = f'{data_volume}/vulnerabilities'
-
 
 @contextmanager
 def timeout(time):
@@ -45,7 +46,7 @@ def timeout(time):
     try:
         yield
     except TimeoutError:
-        pass
+        raise
     finally:
         # Unregister the signal so it won't be triggered
         # if the timeout is not reached.
@@ -213,6 +214,7 @@ if __name__ == "__main__":
 
     set_logger()
     log = logging.getLogger("sec")
+    agent_api_endpoint = 'localhost:5080' if not KUBERNETES_SERVICE_HOST else f'agent.{namespace}'
 
     # Run scans every X seconds
     default_interval = 300
@@ -308,7 +310,13 @@ if __name__ == "__main__":
             log.info(f"Parsing nmap scan result from: {vulscan_out_file}")
             parsed_vulnerabilities = parse_vulscan_xml(vulscan_out_file)
 
-            with open(vulnerabilities_file, 'w') as vf:
-                vf.write(json.dumps(parsed_vulnerabilities))
+            try:
+                send_vuln_url = f"http://{agent_api_endpoint}/api/set-vulnerabilities"
+                r = requests.post(agent_api_endpoint, json=parsed_vulnerabilities)
+            except:
+                log.exception(f"Unable to send vulnerabilities to Agent via {send_vuln_url}")
+                log.warning(f"Saving vulnerabilities to local file instead: {vulnerabilities_file}")
+                with open(vulnerabilities_file, 'w') as vf:
+                    vf.write(json.dumps(parsed_vulnerabilities))
 
         e.wait(timeout=intervals['SECURITY_SCAN_INTERVAL'])
