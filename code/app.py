@@ -312,7 +312,7 @@ if __name__ == "__main__":
 
             try:
                 send_vuln_url = f"http://{agent_api_endpoint}/api/set-vulnerabilities"
-                r = requests.post(agent_api_endpoint, json=parsed_vulnerabilities)
+                r = requests.post(send_vuln_url, json=parsed_vulnerabilities)
             except:
                 log.exception(f"Unable to send vulnerabilities to Agent via {send_vuln_url}")
                 log.warning(f"Saving vulnerabilities to local file instead: {vulnerabilities_file}")
