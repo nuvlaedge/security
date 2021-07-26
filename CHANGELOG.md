@@ -1,4 +1,9 @@
 # Changelog
+## [1.1.0] - 2021-07-26
+### Added 
+ - release of memory after each nmap execution
+### Changed
+ - report telemetry via Agent API
 ## [1.0.3] - 2021-04-23
 ### Added 
  - changing license to GPL
