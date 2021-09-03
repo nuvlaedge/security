@@ -24,7 +24,6 @@ from subprocess import run, PIPE, STDOUT
 from nuvla.api import Api
 from datetime import datetime as dt
 
-
 __copyright__ = "Copyright (C) 2021 SixSq"
 __email__ = "support@sixsq.com"
 
@@ -35,6 +34,7 @@ namespace = os.getenv('MY_NAMESPACE', 'nuvlabox')
 data_volume = "/srv/nuvlabox/shared"
 # Vulnerabilities file
 vulnerabilities_file = f'{data_volume}/vulnerabilities'
+
 
 @contextmanager
 def timeout(time):
@@ -238,7 +238,7 @@ if __name__ == "__main__":
 
     api = None
 
-    local_db_last_update = None     # Never at start. TODO: could be improved to check the local DB file timestamp
+    local_db_last_update = None  # Never at start. TODO: could be improved to check the local DB file timestamp
 
     e = Event()
 
@@ -249,13 +249,14 @@ if __name__ == "__main__":
     offline_vulscan_db = "cve.csv"
     online_vulscan_db = "cve_online.csv"
     vulscan_db = offline_vulscan_db
+    vulscan_dbs = [offline_vulscan_db]
 
     log.info("Starting NuvlaBox Security scanner...")
     previous_external_db_update = dt(1970, 1, 1)
     while True:
         if external_db and \
                 nuvla_endpoint and \
-                (dt.utcnow()-previous_external_db_update).total_seconds() > intervals['EXTERNAL_CVE_VULNERABILITY_DB_UPDATE_INTERVAL']:
+                (dt.utcnow() - previous_external_db_update).total_seconds() > intervals['EXTERNAL_CVE_VULNERABILITY_DB_UPDATE_INTERVAL']:
             log.info(f"Checking for recent updates on the vulnerability DB {external_db}")
             try:
                 if not api:
@@ -280,11 +281,22 @@ if __name__ == "__main__":
                         db_content = io.BytesIO(external_db_gz.content)
                         db_content_csv = gzip.GzipFile(fileobj=db_content, mode='rb').read()
 
+                        db_content_csv_lines = db_content_csv.split()
+
+                        db_slices = len(db_content_csv_lines)/100000    # chunks of 100k vulns
+                        current_slice = 1
+
                         try:
-                            with open(f'{vulscan_db_dir}/{online_vulscan_db}', 'w') as dbw:
-                                dbw.write(db_content_csv.decode())
+                            while True:
+                                if current_slice > db_slices:
+                                    break
+
+                                with open(f'{vulscan_db_dir}/{current_slice}.{online_vulscan_db}', 'w') as dbw:
+                                    dbw.write(db_content_csv.decode())
 
                             vulscan_db = online_vulscan_db
+                            vulscan_dbs.append(f"{current_slice}.{online_vulscan_db}")
+
                             local_db_last_update = nuvla_db_last_update
                             previous_external_db_update = dt.utcnow()
                             log.info(f"Local vulnerability DB {vulscan_db} updated")
