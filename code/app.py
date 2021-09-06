@@ -283,7 +283,7 @@ if __name__ == "__main__":
 
                         db_content_csv_lines = db_content_csv.decode().splitlines()
 
-                        slice_size = os.getenv('DB_SLICE_SIZE', 50000)
+                        slice_size = int(os.getenv('DB_SLICE_SIZE', 50000))
                         current_index = 0
                         current_slice = 1
                         vulscan_dbs = []
