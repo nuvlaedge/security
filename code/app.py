@@ -246,9 +246,10 @@ if __name__ == "__main__":
     vulscan_out_file = f'{data_volume}/nmap-vulscan-out-xml'
 
     vulscan_db_dir = os.getenv('VULSCAN_DB_DIR')
-    offline_vulscan_db = "cve.csv"
-    online_vulscan_db = "cve_online.csv"
-    vulscan_dbs = [offline_vulscan_db]
+    offline_vulscan_db = [db for db in os.listdir(vulscan_db_dir) if db.startswith('cve.csv.')]
+    online_vulscan_db_prefix = 'cve_online.csv.'
+    online_vulscan_db = [db for db in os.listdir(vulscan_db_dir) if db.startswith(online_vulscan_db_prefix)]
+    vulscan_dbs = offline_vulscan_db
 
     log.info("Starting NuvlaBox Security scanner...")
     previous_external_db_update = dt(1970, 1, 1)
@@ -282,25 +283,26 @@ if __name__ == "__main__":
 
                         db_content_csv_lines = db_content_csv.decode().splitlines()
 
-                        slice_size = 1000
+                        slice_size = os.getenv('DB_SLICE_SIZE', 50000)
                         current_index = 0
                         current_slice = 1
                         vulscan_dbs = []
                         try:
                             while True:
-                                log.info(f'Saving part {current_slice} of the CVE DB. {current_index}. {len(db_content_csv_lines)}. {db_content_csv_lines[current_index]}')
-                                with open(f'{vulscan_db_dir}/{current_slice}.{online_vulscan_db}', 'w') as dbw:
+                                online_db_slice = f'{vulscan_db_dir}/{online_vulscan_db_prefix}.{current_slice}'
+                                log.info(f'Saving part {current_slice} of the CVE DB at {online_db_slice}')
+                                with open(online_db_slice, 'w') as dbw:
                                     dbw.write('\n'.join(db_content_csv_lines[current_index:(current_index + slice_size)]))
 
-                                vulscan_dbs.append(f"{current_slice}.{online_vulscan_db}")
+                                vulscan_dbs.append(online_db_slice.split('/')[-1])
 
                                 current_index = current_index + slice_size
                                 current_slice += 1
                         except IndexError:
-                            with open(f'{vulscan_db_dir}/{current_slice}.{online_vulscan_db}', 'w') as dbw:
+                            with open(online_db_slice, 'w') as dbw:
                                 dbw.write('\n'.join(db_content_csv_lines[current_index:]))
 
-                            vulscan_dbs.append(f"{current_slice}.{online_vulscan_db}")
+                            vulscan_dbs.append(online_db_slice.split('/')[-1])
                         except:
                             # if something goes wrong, just fallback to the offline DB
                             logging.exception(f"Failed to save external DB {online_vulscan_db}. Falling back to {offline_vulscan_db}")
@@ -316,7 +318,7 @@ if __name__ == "__main__":
 
         # We can --exclude-ports 5080 from the scan because that's the NB agent API,
         # which is only accessible from within the machine
-        found = {}
+        found = []
         for vulscan_db in vulscan_dbs:
             nmap_scan_cmd = ['sh', '-c',
                             'nmap -sV --script vulscan/ --script-args vulscandb=%s,vulscanoutput=nuvlabox-cve,vulscanshowall=1 localhost --exclude-ports 5080 -oX %s --release-memory'
@@ -330,9 +332,9 @@ if __name__ == "__main__":
             if cve_scan:
                 log.info(f"Parsing nmap scan result from: {vulscan_out_file}")
                 parsed_vulnerabilities = parse_vulscan_xml(vulscan_out_file)
-                found.update(parsed_vulnerabilities)
+                found += parsed_vulnerabilities
 
-        log.info(f'Found: {found}')
+        log.info(f'Found {len(found)} vulnerabilities')
         if found:
             try:
                 send_vuln_url = f"http://{agent_api_endpoint}/api/set-vulnerabilities"
