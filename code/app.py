@@ -248,7 +248,6 @@ if __name__ == "__main__":
     vulscan_db_dir = os.getenv('VULSCAN_DB_DIR')
     offline_vulscan_db = "cve.csv"
     online_vulscan_db = "cve_online.csv"
-    vulscan_db = offline_vulscan_db
     vulscan_dbs = [offline_vulscan_db]
 
     log.info("Starting NuvlaBox Security scanner...")
@@ -281,54 +280,64 @@ if __name__ == "__main__":
                         db_content = io.BytesIO(external_db_gz.content)
                         db_content_csv = gzip.GzipFile(fileobj=db_content, mode='rb').read()
 
-                        db_content_csv_lines = db_content_csv.split()
+                        db_content_csv_lines = db_content_csv.decode().split()
 
-                        db_slices = len(db_content_csv_lines)/100000    # chunks of 100k vulns
+                        slice_size = 100000
+                        current_index = 0
                         current_slice = 1
 
                         try:
                             while True:
-                                if current_slice > db_slices:
-                                    break
-
                                 with open(f'{vulscan_db_dir}/{current_slice}.{online_vulscan_db}', 'w') as dbw:
-                                    dbw.write(db_content_csv.decode())
+                                    dbw.write('\n'.join(db_content_csv_lines[current_index:(current_index + slice_size)]))
 
-                            vulscan_db = online_vulscan_db
+                                current_index = current_index + slice_size
+                                current_slice += 1
+
                             vulscan_dbs.append(f"{current_slice}.{online_vulscan_db}")
+                        except IndexError:
+                            with open(f'{vulscan_db_dir}/{current_slice}.{online_vulscan_db}', 'w') as dbw:
+                                dbw.write('\n'.join(db_content_csv_lines[current_index:]))
 
-                            local_db_last_update = nuvla_db_last_update
-                            previous_external_db_update = dt.utcnow()
-                            log.info(f"Local vulnerability DB {vulscan_db} updated")
+                            vulscan_dbs.append(f"{current_slice}.{online_vulscan_db}")
                         except:
                             # if something goes wrong, just fallback to the offline DB
                             logging.exception(f"Failed to save external DB {online_vulscan_db}. Falling back to {offline_vulscan_db}")
-                            vulscan_db = offline_vulscan_db
+                            vulscan_dbs = [offline_vulscan_db]
+                            raise
+
+                        local_db_last_update = nuvla_db_last_update
+                        previous_external_db_update = dt.utcnow()
+                        log.info(f"Local vulnerability DB updated: {' '.join(vulscan_dbs)}")
             except:
                 log.exception(f"Could not check for updates on DB {external_db}. Moving on with existing DB")
 
         # We can --exclude-ports 5080 from the scan because that's the NB agent API,
         # which is only accessible from within the machine
-        nmap_scan_cmd = ['sh', '-c',
-                         'nmap -sV --script vulscan/ --script-args vulscandb=%s,vulscanoutput=nuvlabox-cve,vulscanshowall=1 localhost --exclude-ports 5080 -oX %s --release-memory'
-                         % (vulscan_db, vulscan_out_file)]
-        # run security scans periodically
+        found = {}
+        for vulscan_db in vulscan_dbs:
+            nmap_scan_cmd = ['sh', '-c',
+                            'nmap -sV --script vulscan/ --script-args vulscandb=%s,vulscanoutput=nuvlabox-cve,vulscanshowall=1 localhost --exclude-ports 5080 -oX %s --release-memory'
+                            % (vulscan_db, vulscan_out_file)]
+            # run security scans periodically
 
-        # 1 - get CVE vulnerabilities
-        log.info(f"Running nmap Vulscan: {nmap_scan_cmd}")
-        cve_scan = run_cve_scan(nmap_scan_cmd)
+            # 1 - get CVE vulnerabilities
+            log.info(f"Running nmap Vulscan: {nmap_scan_cmd}")
+            cve_scan = run_cve_scan(nmap_scan_cmd)
 
-        if cve_scan:
-            log.info(f"Parsing nmap scan result from: {vulscan_out_file}")
-            parsed_vulnerabilities = parse_vulscan_xml(vulscan_out_file)
+            if cve_scan:
+                log.info(f"Parsing nmap scan result from: {vulscan_out_file}")
+                parsed_vulnerabilities = parse_vulscan_xml(vulscan_out_file)
+                found.update(parsed_vulnerabilities)
 
-            try:
-                send_vuln_url = f"http://{agent_api_endpoint}/api/set-vulnerabilities"
-                r = requests.post(send_vuln_url, json=parsed_vulnerabilities)
-            except:
-                log.exception(f"Unable to send vulnerabilities to Agent via {send_vuln_url}")
-                log.warning(f"Saving vulnerabilities to local file instead: {vulnerabilities_file}")
-                with open(vulnerabilities_file, 'w') as vf:
-                    vf.write(json.dumps(parsed_vulnerabilities))
+            if found:
+                try:
+                    send_vuln_url = f"http://{agent_api_endpoint}/api/set-vulnerabilities"
+                    r = requests.post(send_vuln_url, json=found)
+                except:
+                    log.exception(f"Unable to send vulnerabilities to Agent via {send_vuln_url}")
+                    log.warning(f"Saving vulnerabilities to local file instead: {vulnerabilities_file}")
+                    with open(vulnerabilities_file, 'w') as vf:
+                        vf.write(json.dumps(found))
 
         e.wait(timeout=intervals['SECURITY_SCAN_INTERVAL'])
