@@ -25,7 +25,7 @@ RUN pip install -r requirements.txt
 RUN cp -f patch/vulscan.nse /usr/share/nmap/scripts/vulscan/
 
 ENV VULSCAN_DB_DIR /usr/share/nmap/scripts/vulscan
-ENV DB_SLICE_SIZE 25000
+ENV DB_SLICE_SIZE 15000
 
 ADD vuln-db/databases/all.aggregated.csv.gz ${VULSCAN_DB_DIR}
 

@@ -252,9 +252,10 @@ if __name__ == "__main__":
     online_vulscan_db_prefix = 'cve_online.csv.'
     online_vulscan_db = [db for db in os.listdir(vulscan_db_dir) if db.startswith(online_vulscan_db_prefix)]
     vulscan_dbs = offline_vulscan_db
-    slice_size = int(os.getenv('DB_SLICE_SIZE', 25000))
+    slice_size = int(os.getenv('DB_SLICE_SIZE', 15000))
 
     log.info(f"Starting NuvlaBox Security scanner in {intervals['SECURITY_SCAN_INTERVAL']} seconds...")
+    e.wait(timeout=intervals['SECURITY_SCAN_INTERVAL'])
     previous_external_db_update = dt(1970, 1, 1)
     while True:
         if external_db and \
