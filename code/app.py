@@ -258,7 +258,7 @@ if __name__ == "__main__":
     online_vulscan_db_prefix = 'cve_online.csv.'
     online_vulscan_db = [db for db in os.listdir(vulscan_db_dir) if db.startswith(online_vulscan_db_prefix)]
     vulscan_dbs = offline_vulscan_db
-    slice_size = int(os.getenv('DB_SLICE_SIZE', 15000))
+    slice_size = int(os.getenv('DB_SLICE_SIZE', 20000))
 
     log.info(f"Starting NuvlaBox Security scanner in {intervals['SECURITY_SCAN_INTERVAL']} seconds...")
     e.wait(timeout=intervals['SECURITY_SCAN_INTERVAL'])
@@ -317,7 +317,6 @@ if __name__ == "__main__":
                             raise
                         finally:
                             del db_content_csv_lines
-                            gc.collect()
 
                         local_db_last_update = nuvla_db_last_update
                         previous_external_db_update = dt.utcnow()
@@ -356,4 +355,5 @@ if __name__ == "__main__":
                 with open(vulnerabilities_file, 'w') as vf:
                     vf.write(json.dumps(found))
 
+        gc.collect()
         e.wait(timeout=intervals['SECURITY_SCAN_INTERVAL'])
