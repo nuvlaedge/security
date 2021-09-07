@@ -128,7 +128,7 @@ def parse_vulscan_xml(file):
         except AttributeError:
             continue
         if output:
-            output = re.sub('cve.*.csv.*:\n').replace(' |nb| \n\n', '')
+            output = re.sub('cve.*.csv.*:\n', '', output).replace(' |nb| \n\n', '')
             # output = output.replace('cve.csv:\n', '').replace('cve_online.csv:\n', '').replace(' |nb| \n\n', '')
             vulnerabilities_found = output.split(' |nb| ')
             log.info(f"Parsing list of found vulnerabilities for {product}")
