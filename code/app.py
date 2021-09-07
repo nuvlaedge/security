@@ -137,8 +137,8 @@ def parse_vulscan_xml(file):
                 try:
                     id, description = vuln_attrs[0:2]
                     score = vuln_attrs[-1]
-                except (IndexError, ValueError):
-                    log.exception(f"Failed to parse vulnerability {vuln_attrs}")
+                except (IndexError, ValueError) as e:
+                    log.error(f"Failed to parse vulnerability {vuln_attrs}: {str(e)}")
                     continue
 
                 vulnerability_info['vulnerability-id'] = id
@@ -250,8 +250,9 @@ if __name__ == "__main__":
     online_vulscan_db_prefix = 'cve_online.csv.'
     online_vulscan_db = [db for db in os.listdir(vulscan_db_dir) if db.startswith(online_vulscan_db_prefix)]
     vulscan_dbs = offline_vulscan_db
+    slice_size = int(os.getenv('DB_SLICE_SIZE', 25000))
 
-    log.info("Starting NuvlaBox Security scanner...")
+    log.info(f"Starting NuvlaBox Security scanner in {intervals['SECURITY_SCAN_INTERVAL']} seconds...")
     previous_external_db_update = dt(1970, 1, 1)
     while True:
         if external_db and \
@@ -283,26 +284,27 @@ if __name__ == "__main__":
 
                         db_content_csv_lines = db_content_csv.decode().splitlines()
 
-                        slice_size = int(os.getenv('DB_SLICE_SIZE', 50000))
-                        current_index = 0
-                        current_slice = 1
                         vulscan_dbs = []
                         try:
-                            while True:
-                                online_db_slice = f'{vulscan_db_dir}/{online_vulscan_db_prefix}.{current_slice}'
+                            rest = len(db_content_csv_lines)%slice_size
+                            num_files = int(len(db_content_csv_lines)/slice_size)
+                            if rest > 0:
+                                num_files = num_files + 1
+
+                            for current_slice in range(0, num_files):
+                                online_db_slice = f'{vulscan_db_dir}/{online_vulscan_db_prefix}{current_slice}'
                                 log.info(f'Saving part {current_slice} of the CVE DB at {online_db_slice}')
+
+                                from_i = current_slice * slice_size
+                                if current_slice == num_files:
+                                    to_i = None
+                                else:
+                                    to_i = (current_slice + 1) * slice_size
+
                                 with open(online_db_slice, 'w') as dbw:
-                                    dbw.write('\n'.join(db_content_csv_lines[current_index:(current_index + slice_size)]))
+                                    dbw.write('\n'.join(db_content_csv_lines[from_i:to_i]))
 
                                 vulscan_dbs.append(online_db_slice.split('/')[-1])
-
-                                current_index = current_index + slice_size
-                                current_slice += 1
-                        except IndexError:
-                            with open(online_db_slice, 'w') as dbw:
-                                dbw.write('\n'.join(db_content_csv_lines[current_index:]))
-
-                            vulscan_dbs.append(online_db_slice.split('/')[-1])
                         except:
                             # if something goes wrong, just fallback to the offline DB
                             logging.exception(f"Failed to save external DB {online_vulscan_db}. Falling back to {offline_vulscan_db}")
@@ -313,7 +315,7 @@ if __name__ == "__main__":
                         log.info(f"Local vulnerability DB updated: {' '.join(vulscan_dbs)}")
             except:
                 log.exception(f"Could not check for updates on DB {external_db}. Moving on with existing DB")
-                vulscan_dbs = [offline_vulscan_db]
+                vulscan_dbs = offline_vulscan_db
 
 
         # We can --exclude-ports 5080 from the scan because that's the NB agent API,
