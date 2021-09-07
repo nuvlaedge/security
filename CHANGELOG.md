@@ -1,4 +1,10 @@
 # Changelog
+## [1.2.0] - 2021-09-07
+### Added 
+ - CVE DB partitioning 
+ - Delay on first scan 
+ - memory optimizations
+### Changed
 ## [1.1.0] - 2021-07-26
 ### Added 
  - release of memory after each nmap execution
