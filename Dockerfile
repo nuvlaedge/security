@@ -25,11 +25,14 @@ RUN pip install -r requirements.txt
 RUN cp -f patch/vulscan.nse /usr/share/nmap/scripts/vulscan/
 
 ENV VULSCAN_DB_DIR /usr/share/nmap/scripts/vulscan
+ENV DB_SLICE_SIZE 20000
 
 ADD vuln-db/databases/all.aggregated.csv.gz ${VULSCAN_DB_DIR}
 
 RUN gunzip -c ${VULSCAN_DB_DIR}/all.aggregated.csv.gz > ${VULSCAN_DB_DIR}/cve.csv && \
-      rm -f ${VULSCAN_DB_DIR}/all.aggregated.csv.gz
+      rm -f ${VULSCAN_DB_DIR}/all.aggregated.csv.gz && \
+      split -l ${DB_SLICE_SIZE} ${VULSCAN_DB_DIR}/cve.csv ${VULSCAN_DB_DIR}/cve.csv. && \
+      rm -f ${VULSCAN_DB_DIR}/cve.csv
 
 VOLUME /srv/nuvlabox/shared
 
