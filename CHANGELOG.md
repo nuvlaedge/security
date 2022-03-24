@@ -1,4 +1,8 @@
 # Changelog
+## [1.2.1] - 2022-03-24
+### Added 
+ - Add org.opencontainers image labels
+### Changed
 ## [1.2.0] - 2021-09-07
 ### Added 
  - CVE DB partitioning 
