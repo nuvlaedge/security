@@ -266,8 +266,7 @@ if __name__ == "__main__":
     #          f"{intervals['SECURITY_SCAN_INTERVAL']} seconds...")
     log.info(f"Starting NuvlaBox Security scanner in "
              f"{30} seconds...")
-    # e.wait(timeout=intervals['SECURITY_SCAN_INTERVAL'])
-    e.wait(timeout=30)
+    e.wait(timeout=intervals['SECURITY_SCAN_INTERVAL'])
 
     previous_external_db_update = dt(1970, 1, 1)
 

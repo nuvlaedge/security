@@ -59,7 +59,7 @@ class SecuritySettings(BaseSettings):
         default_interval,
         env='EXTERNAL_CVE_VULNERABILITY_DB_UPDATE_INTERVAL')
 
-    slice_size: int = Field(20000, env='DB_SLICE_SIZE')
+    slice_size: int = Field(20, env='DB_SLICE_SIZE')
 
     # Database files
     vulscan_out_file: str = f'{data_volume}/nmap-vulscan-out-xml'
@@ -198,18 +198,17 @@ class Security:
         if response.returncode != 0:
             self.logger.error(f'Not properly uncompressed')
 
-        # external_db_gz = requests.get(self.settings.external_db.lstrip('"').rstrip('"'))
-        # db_content = io.BytesIO(external_db_gz.content)
-
     def update_vulscan_db(self):
         """ Updates the local registry of the vulnerabilities data """
 
-        def read_in_chunks(file_object, batch_size=20*1024*1024):
+        def read_in_slices(file_object, batch_size=20):
             """
-            Auxiliary generator function to read the file as and iterator
+            Auxiliary generator function to read the file as and iterator. Receives the
+            object to read and the memory size in MB to return per iteration
             """
+            bytes_batch_size: int = batch_size*1024*1024
             while True:
-                data = file_object.read(batch_size)
+                data = file_object.read(bytes_batch_size)
                 if not data:
                     break
                 yield data
@@ -235,20 +234,16 @@ class Security:
 
         self.logger.info(f"Fetching and extracting {self.settings.external_db}")
         self.get_external_db_as_csv()
-        # db_content_csv_lines = self.get_external_db_as_csv().decode().splitlines()
-        size = os.path.getsize('/tmp/raw_vulnerabilities')
-        self.logger.error(f'Size of the file {size}')
+
         with open('/tmp/raw_vulnerabilities', 'r') as temp_vul_file:
-            # db_content_csv_lines = temp_vul_file.readlines()
 
             self.vulscan_dbs = []
-            for i, current_slice in enumerate(read_in_chunks(temp_vul_file)):
+            for i, current_slice in enumerate(read_in_slices(temp_vul_file)):
 
                 online_db_slice = f'{self.settings.vulscan_db_dir}/' \
                                   f'{self.settings.online_vulscan_db_prefix}' \
                                   f'{i}'
-                self.logger.info(f'Saving part {i} of the CVE DB at '
-                         f'{online_db_slice}')
+                self.logger.info(f'Saving part {i} of the CVE DB at {online_db_slice}')
 
                 with open(online_db_slice, 'w') as dbw:
                     dbw.write('\n'.join(current_slice))
@@ -259,8 +254,6 @@ class Security:
             self.previous_external_db_update = datetime.utcnow()
             self.logger.info(f"Local vulnerability DB updated: "
                              f"{' '.join(self.vulscan_dbs)}")
-
-            return self.vulscan_dbs
 
     def parse_vulscan_xml(self):
         """ Parses the nmap output XML file and gives back the list of formatted
@@ -344,10 +337,10 @@ class Security:
         else:
             return True
 
-    def run_scan(self, db_list):
+    def run_scan(self):
         temp_vulnerabilities: List = []
 
-        for vulscan_db in db_list:
+        for vulscan_db in self.vulscan_dbs:
             nmap_scan_cmd = ['sh', '-c',
                              'nmap -sV --script vulscan/ --script-args vulscandb=%s,vulscanoutput=nuvlabox-cve,vulscanshowall=1 localhost --exclude-ports 5080 -oX %s --release-memory'
                              % (vulscan_db, self.settings.vulscan_out_file)]
@@ -358,7 +351,8 @@ class Security:
             cve_scan = self.run_cve_scan(nmap_scan_cmd)
 
             if cve_scan:
-                self.logger.info(f"Parsing nmap scan result from: {self.settings.vulscan_out_file}")
+                self.logger.info(f"Parsing nmap scan result from: "
+                                 f"{self.settings.vulscan_out_file}")
                 parsed_vulnerabilities = self.parse_vulscan_xml()
                 temp_vulnerabilities += parsed_vulnerabilities
 

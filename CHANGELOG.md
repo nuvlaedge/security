@@ -1,4 +1,10 @@
 # Changelog
+## Unreleased
+### Added
+ - Refactored main script. Added a Security class to control module settings in a static 
+way
+### Changed
+ - DB update process externalized to wget and gzip programs
 ## [1.2.1] - 2022-03-24
 ### Added 
  - Add org.opencontainers image labels
