@@ -1,3 +1,6 @@
+#!/usr/local/bin/python
+# -*- coding: utf-8 -*-
+
 """ Security scan Main script"""
 from datetime import datetime
 import logging
