@@ -2,7 +2,6 @@
 import logging
 import sys
 import time
-import threading
 
 from security import Security
 
@@ -36,7 +35,6 @@ def main():
 
     security: Security = Security(logger)
     db_list = security.update_vulscan_db()
-    logger.error(f'Size of security class {sys.getsizeof(security)}')
     try:
         while True:
             security.run_scan(db_list)

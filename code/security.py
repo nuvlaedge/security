@@ -3,11 +3,8 @@ Module for the security scanner class
 """
 from contextlib import contextmanager
 from datetime import datetime
-import gzip
-import io
 import json
 import logging
-from math import ceil
 import os
 import re
 import requests
@@ -195,13 +192,11 @@ class Security:
         response = self.execute_cmd(download_command)
         if response.returncode != 0:
             self.logger.error(f'Not properly downloaded')
-            exit(1)
 
         unzip_command: List = ['gzip', '-d', '/tmp/raw_vulnerabilities.gz']
         response = self.execute_cmd(unzip_command)
         if response.returncode != 0:
             self.logger.error(f'Not properly uncompressed')
-            exit(1)
 
         # external_db_gz = requests.get(self.settings.external_db.lstrip('"').rstrip('"'))
         # db_content = io.BytesIO(external_db_gz.content)
@@ -210,7 +205,8 @@ class Security:
         """ Updates the local registry of the vulnerabilities data """
 
         def read_in_chunks(file_object, batch_size=20*1024*1024):
-            """ Auxiliary generator function to read the file as and iterator
+            """
+            Auxiliary generator function to read the file as and iterator
             """
             while True:
                 data = file_object.read(batch_size)

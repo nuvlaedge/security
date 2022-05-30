@@ -378,5 +378,4 @@ if __name__ == "__main__":
                     vf.write(json.dumps(found))
 
         gc.collect()
-        break
-        # e.wait(timeout=intervals['SECURITY_SCAN_INTERVAL'])
+        e.wait(timeout=intervals['SECURITY_SCAN_INTERVAL'])
