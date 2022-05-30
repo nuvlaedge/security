@@ -41,6 +41,9 @@ RUN gunzip -c ${VULSCAN_DB_DIR}/all.aggregated.csv.gz > ${VULSCAN_DB_DIR}/cve.cs
       split -l ${DB_SLICE_SIZE} ${VULSCAN_DB_DIR}/cve.csv ${VULSCAN_DB_DIR}/cve.csv. && \
       rm -f ${VULSCAN_DB_DIR}/cve.csv
 
+
+RUN chmod +x security_main.py
+
 VOLUME /srv/nuvlabox/shared
 
 ONBUILD RUN ./license.sh
