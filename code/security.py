@@ -194,13 +194,18 @@ class Security:
         response = self.execute_cmd(download_command)
         if response.returncode != 0:
             self.logger.error(f'Not properly downloaded')
-
+        self.logger.info(f'Waiting after download')
+        time.sleep(5)
         # Uncompress external db
         unzip_command: List = ['gzip', '-d', '/tmp/raw_vulnerabilities.gz']
         response = self.execute_cmd(unzip_command)
         if response.returncode != 0:
             self.logger.error(f'Not properly uncompressed')
+            self.logger.error(f'{response.stdout}')
+            self.logger.error(f'{response.stderr}')
 
+        self.logger.info(f'Waiting after uncompress')
+        time.sleep(5)
         # Split file in smaller files
         split_command: List = ['split', '-l', '20000', '-d', '/tmp/raw_vulnerabilities',
                                '--additional-suffix=.cve_online.csv']
@@ -215,6 +220,8 @@ class Security:
 
                 shutil.move(f'/opt/nuvlabox/{new}', f'{self.settings.vulscan_db_dir}/{new}')
             self.vulscan_dbs = sorted(split_files)
+        self.logger.info(f'Waiting after renaming')
+        time.sleep(5)
 
     def update_vulscan_db(self):
         """ Updates the local registry of the vulnerabilities data """

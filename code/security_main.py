@@ -41,13 +41,11 @@ def main():
 
     logger.info(f'Starting NuvlaEdge security scan in '
                 f'{security.settings.scan_period} seconds')
-    # security_event.wait(timeout=security.settings.scan_period)
-
-    logger.info(f'Updated local vulnerabilities scan database')
-    security.update_vulscan_db()
 
     try:
         while True:
+            security_event.wait(timeout=security.settings.scan_period)
+
             if local_settings.external_db and security.nuvla_endpoint and \
                 (datetime.utcnow() - security.previous_external_db_update)\
                     .total_seconds() > local_settings.external_db_update_period:
@@ -57,7 +55,6 @@ def main():
             logger.info(f'Running vulnerability scan')
             security.run_scan()
             logger.info(f'Waiting for next in  {security.settings.scan_period}')
-            security_event.wait(timeout=security.settings.scan_period)
 
     except KeyboardInterrupt:
         exit(0)
