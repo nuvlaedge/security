@@ -31,11 +31,7 @@ def set_logger(logger_name: str = 'security') -> logging.Logger:
     return root
 
 
-db_list = []
-
-
 def main():
-    global db_list
     # Wait before starting doing anything
     logger: logging.Logger = set_logger()
     security_event: threading.Event = threading.Event()
@@ -45,7 +41,7 @@ def main():
 
     logger.info(f'Starting NuvlaEdge security scan in '
                 f'{security.settings.scan_period} seconds')
-    security_event.wait(timeout=security.settings.scan_period)
+    # security_event.wait(timeout=security.settings.scan_period)
 
     logger.info(f'Updated local vulnerabilities scan database')
     security.update_vulscan_db()
@@ -60,7 +56,7 @@ def main():
 
             logger.info(f'Running vulnerability scan')
             security.run_scan()
-
+            logger.info(f'Waiting for next in  {security.settings.scan_period}')
             security_event.wait(timeout=security.settings.scan_period)
 
     except KeyboardInterrupt:

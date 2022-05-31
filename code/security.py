@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import requests
+import shutil
 import signal
 from subprocess import run, PIPE, STDOUT, Popen, CompletedProcess, TimeoutExpired, \
     SubprocessError
@@ -186,6 +187,7 @@ class Security:
         return None
 
     def get_external_db_as_csv(self):
+        # Download external DB
         download_command: List = ['wget',
                                   self.settings.external_db.lstrip('"').rstrip('"'),
                                   '-O', '/tmp/raw_vulnerabilities.gz']
@@ -193,10 +195,26 @@ class Security:
         if response.returncode != 0:
             self.logger.error(f'Not properly downloaded')
 
+        # Uncompress external db
         unzip_command: List = ['gzip', '-d', '/tmp/raw_vulnerabilities.gz']
         response = self.execute_cmd(unzip_command)
         if response.returncode != 0:
             self.logger.error(f'Not properly uncompressed')
+
+        # Split file in smaller files
+        split_command: List = ['split', '-l', '20000', '-d', '/tmp/raw_vulnerabilities',
+                               '--additional-suffix=.cve_online.csv']
+        response = self.execute_cmd(split_command)
+        if response.returncode != 0:
+            self.logger.error(f'Not properly split')
+
+        else:
+            split_files: List = [f for f in os.listdir('/opt/nuvlabox') if f.startswith('x')]
+            self.logger.error(f'{split_files}')
+            for new in split_files:
+
+                shutil.move(f'/opt/nuvlabox/{new}', f'{self.settings.vulscan_db_dir}/{new}')
+            self.vulscan_dbs = sorted(split_files)
 
     def update_vulscan_db(self):
         """ Updates the local registry of the vulnerabilities data """
@@ -235,25 +253,25 @@ class Security:
         self.logger.info(f"Fetching and extracting {self.settings.external_db}")
         self.get_external_db_as_csv()
 
-        with open('/tmp/raw_vulnerabilities', 'r') as temp_vul_file:
-
-            self.vulscan_dbs = []
-            for i, current_slice in enumerate(read_in_slices(temp_vul_file)):
-
-                online_db_slice = f'{self.settings.vulscan_db_dir}/' \
-                                  f'{self.settings.online_vulscan_db_prefix}' \
-                                  f'{i}'
-                self.logger.info(f'Saving part {i} of the CVE DB at {online_db_slice}')
-
-                with open(online_db_slice, 'w') as dbw:
-                    dbw.write('\n'.join(current_slice))
-
-                self.vulscan_dbs.append(online_db_slice.split('/')[-1])
-
-            self.local_db_last_update = temp_db_last_update
-            self.previous_external_db_update = datetime.utcnow()
-            self.logger.info(f"Local vulnerability DB updated: "
-                             f"{' '.join(self.vulscan_dbs)}")
+        # with open('/tmp/raw_vulnerabilities', 'r') as temp_vul_file:
+        #
+        #     self.vulscan_dbs = []
+        #     for i, current_slice in enumerate(read_in_slices(temp_vul_file)):
+        #
+        #         online_db_slice = f'{self.settings.vulscan_db_dir}/' \
+        #                           f'{self.settings.online_vulscan_db_prefix}' \
+        #                           f'{i}'
+        #         self.logger.info(f'Saving part {i} of the CVE DB at {online_db_slice}')
+        #
+        #         with open(online_db_slice, 'w') as dbw:
+        #             dbw.write('\n'.join(current_slice))
+        #
+        #         self.vulscan_dbs.append(online_db_slice.split('/')[-1])
+        #
+        #     self.local_db_last_update = temp_db_last_update
+        #     self.previous_external_db_update = datetime.utcnow()
+        #     self.logger.info(f"Local vulnerability DB updated: "
+        #                      f"{' '.join(self.vulscan_dbs)}")
 
     def parse_vulscan_xml(self):
         """ Parses the nmap output XML file and gives back the list of formatted

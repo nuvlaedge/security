@@ -43,6 +43,7 @@ RUN gunzip -c ${VULSCAN_DB_DIR}/all.aggregated.csv.gz > ${VULSCAN_DB_DIR}/cve.cs
 
 
 RUN chmod +x security_main.py
+RUN apk add coreutils --no-cache
 
 VOLUME /srv/nuvlabox/shared
 
