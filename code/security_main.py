@@ -34,34 +34,22 @@ def set_logger(logger_name: str = 'security') -> logging.Logger:
 def main():
     # Wait before starting doing anything
     logger: logging.Logger = set_logger()
-    security_event: threading.Event = threading.Event()
 
     security: Security = Security(logger)
-    local_settings: SecuritySettings = security.settings
 
     logger.info(f'Starting NuvlaEdge security scan in '
                 f'{security.settings.scan_period} seconds')
 
-    try:
-        while True:
-            security_event.wait(timeout=security.settings.scan_period)
+    if security.settings.external_db and security.nuvla_endpoint and \
+        (datetime.utcnow() - security.previous_external_db_update)\
+            .total_seconds() > security.settings.external_db_update_period:
+        logger.info(f'Checking for updates on the vulnerability DB')
+        security.update_vulscan_db()
 
-            if local_settings.external_db and security.nuvla_endpoint and \
-                (datetime.utcnow() - security.previous_external_db_update)\
-                    .total_seconds() > local_settings.external_db_update_period:
-                logger.info(f'Checking for updates on the vulnerability DB')
-                security.update_vulscan_db()
-
-            logger.info(f'Running vulnerability scan')
-            security.run_scan()
-            logger.info(f'Waiting for next in  {security.settings.scan_period}')
-
-    except KeyboardInterrupt:
-        exit(0)
+    logger.info(f'Running vulnerability scan')
+    security.run_scan()
+    logger.info(f'Waiting for next in  {security.settings.scan_period}')
 
 
 if __name__ == '__main__':
-
     main()
-    time.sleep(10)
-

@@ -46,6 +46,12 @@ class SecuritySettings(BaseSettings):
     # File locations
     data_volume: str = "/srv/nuvlabox/shared"
     vulnerabilities_file: str = f'{data_volume}/vulnerabilities'
+    security_folder: str = f'{data_volume}/security'
+    external_db_update_file: str = f'{security_folder}/.vuln-db-update'
+    external_db_names_file: str = f'{security_folder}/.file_locations'
+    nmap_script_path: str = '/usr/share/nmap/scripts/vulscan/'
+
+    date_format: str = '%d-%b-%Y (%H:%M:%S.%f)'
     apikey_file: str = f'{data_volume}/.activated'
     nuvla_conf_file: str = f'{data_volume}/.nuvla-configuration'
 
@@ -95,13 +101,15 @@ class Security:
         self.event: Event = Event()
 
         self.local_db_last_update = None
-        self.previous_external_db_update = datetime(1970, 1, 1)
+
+        self.vulscan_dbs: List = []
+        self.previous_external_db_update: datetime = \
+            self.get_previous_external_db_update()
 
         self.offline_vulscan_db: List = \
             [db for db in os.listdir(self.settings.vulscan_db_dir) if
              db.startswith('cve.csv.')]
 
-        self.vulscan_dbs: List = []
 
     def authenticate(self):
         """ Uses the NB ApiKey credential to authenticate against Nuvla
@@ -194,8 +202,7 @@ class Security:
         response = self.execute_cmd(download_command)
         if response.returncode != 0:
             self.logger.error(f'Not properly downloaded')
-        self.logger.info(f'Waiting after download')
-        time.sleep(5)
+
         # Uncompress external db
         unzip_command: List = ['gzip', '-d', '/tmp/raw_vulnerabilities.gz']
         response = self.execute_cmd(unzip_command)
@@ -204,8 +211,6 @@ class Security:
             self.logger.error(f'{response.stdout}')
             self.logger.error(f'{response.stderr}')
 
-        self.logger.info(f'Waiting after uncompress')
-        time.sleep(5)
         # Split file in smaller files
         split_command: List = ['split', '-l', '20000', '-d', '/tmp/raw_vulnerabilities',
                                '--additional-suffix=.cve_online.csv']
@@ -214,29 +219,61 @@ class Security:
             self.logger.error(f'Not properly split')
 
         else:
-            split_files: List = [f for f in os.listdir('/opt/nuvlabox') if f.startswith('x')]
-            self.logger.error(f'{split_files}')
-            for new in split_files:
+            split_files: List = \
+                [f for f in os.listdir('/opt/nuvlabox') if f.startswith('x')]
+            renamed_files: List = []
+            for i, file_name in enumerate(split_files):
+                renamed_files.append(self.settings.online_vulscan_db_prefix + str(i))
 
-                shutil.move(f'/opt/nuvlabox/{new}', f'{self.settings.vulscan_db_dir}/{new}')
-            self.vulscan_dbs = sorted(split_files)
-        self.logger.info(f'Waiting after renaming')
-        time.sleep(5)
+            self.logger.error(f'{split_files}')
+            self.logger.error(f'{renamed_files}')
+
+            for old, new in zip(split_files, renamed_files):
+                shutil.move(f'/opt/nuvlabox/{old}',
+                            f'{self.settings.vulscan_db_dir}/{new}')
+
+            self.vulscan_dbs = renamed_files
+        if os.path.exists('/tmp/raw_vulnerabilities'):
+            os.remove('/tmp/raw_vulnerabilities')
+        self.set_previous_external_db_update()
+
+    def set_previous_external_db_update(self):
+        """
+        Called when the external databased is updated. It updates a local variable and
+        and persistent file with the update date of the external db
+        """
+        self.previous_external_db_update = datetime.utcnow()
+        if not os.path.exists(self.settings.security_folder):
+            os.mkdir(self.settings.security_folder)
+        with open(self.settings.external_db_update_file, 'w', encoding="utf-8") \
+                as date_file:
+            date_file.write(
+                self.previous_external_db_update.strftime(self.settings.date_format))
+
+    def gather_external_db_file_names(self):
+        it_content: List[str] = os.listdir(self.settings.nmap_script_path)
+        it_content = [f for f in it_content if
+                      f.startswith(self.settings.online_vulscan_db_prefix)]
+        self.vulscan_dbs = sorted(it_content)
+
+    def get_previous_external_db_update(self) -> datetime:
+        self.logger.info(f'Retrieving previously updated db date')
+        if os.path.exists(self.settings.external_db_update_file):
+            with open(self.settings.external_db_update_file, 'r', encoding="utf-8") \
+                    as date_file:
+                try:
+                    it_date = datetime.strptime(date_file.read(),
+                                                self.settings.date_format)
+                    self.gather_external_db_file_names()
+
+                    return it_date
+                except ValueError:
+                    return datetime(1970, 1, 1)
+        else:
+            return datetime(1970, 1, 1)
 
     def update_vulscan_db(self):
         """ Updates the local registry of the vulnerabilities data """
-
-        def read_in_slices(file_object, batch_size=20):
-            """
-            Auxiliary generator function to read the file as and iterator. Receives the
-            object to read and the memory size in MB to return per iteration
-            """
-            bytes_batch_size: int = batch_size*1024*1024
-            while True:
-                data = file_object.read(bytes_batch_size)
-                if not data:
-                    break
-                yield data
 
         nuvla_vul_db: List = self.api.search('vulnerability',
                                              orderby='modified:desc',
@@ -259,26 +296,6 @@ class Security:
 
         self.logger.info(f"Fetching and extracting {self.settings.external_db}")
         self.get_external_db_as_csv()
-
-        # with open('/tmp/raw_vulnerabilities', 'r') as temp_vul_file:
-        #
-        #     self.vulscan_dbs = []
-        #     for i, current_slice in enumerate(read_in_slices(temp_vul_file)):
-        #
-        #         online_db_slice = f'{self.settings.vulscan_db_dir}/' \
-        #                           f'{self.settings.online_vulscan_db_prefix}' \
-        #                           f'{i}'
-        #         self.logger.info(f'Saving part {i} of the CVE DB at {online_db_slice}')
-        #
-        #         with open(online_db_slice, 'w') as dbw:
-        #             dbw.write('\n'.join(current_slice))
-        #
-        #         self.vulscan_dbs.append(online_db_slice.split('/')[-1])
-        #
-        #     self.local_db_last_update = temp_db_last_update
-        #     self.previous_external_db_update = datetime.utcnow()
-        #     self.logger.info(f"Local vulnerability DB updated: "
-        #                      f"{' '.join(self.vulscan_dbs)}")
 
     def parse_vulscan_xml(self):
         """ Parses the nmap output XML file and gives back the list of formatted
@@ -366,10 +383,16 @@ class Security:
         temp_vulnerabilities: List = []
 
         for vulscan_db in self.vulscan_dbs:
-            nmap_scan_cmd = ['sh', '-c',
-                             'nmap -sV --script vulscan/ --script-args vulscandb=%s,vulscanoutput=nuvlabox-cve,vulscanshowall=1 localhost --exclude-ports 5080 -oX %s --release-memory'
-                             % (vulscan_db, self.settings.vulscan_out_file)]
-            # run security scans periodically
+            nmap_scan_cmd: List[str] = \
+                ['nice', '-n', '15',
+                 'nmap',
+                 '-sV',
+                 '--script', 'vulscan/', '--script-args',
+                 f'vulscandb={vulscan_db},vulscanoutput=nuvlabox-cve,vulscanshowall=1',
+                 'localhost',
+                 '--exclude-ports', '5080',
+                 '-oX', self.settings.vulscan_out_file,
+                 '--release-memory']
 
             # 1 - get CVE vulnerabilities
             self.logger.info(f"Running nmap Vulscan: {nmap_scan_cmd}")

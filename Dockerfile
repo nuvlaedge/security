@@ -19,7 +19,7 @@ LABEL org.opencontainers.image.vendor="SixSq SA"
 LABEL org.opencontainers.image.title="NuvlaBox Security"
 LABEL org.opencontainers.image.description="Regularly scans the edge device for CVE-based vulnerabilities"
 
-RUN apk update && apk add --no-cache nmap nmap-scripts
+RUN apk update && apk add --no-cache nmap nmap-scripts coreutils
 
 COPY vulscan /usr/share/nmap/scripts/vulscan
 
@@ -42,11 +42,11 @@ RUN gunzip -c ${VULSCAN_DB_DIR}/all.aggregated.csv.gz > ${VULSCAN_DB_DIR}/cve.cs
       rm -f ${VULSCAN_DB_DIR}/cve.csv
 
 
-RUN chmod +x security_main.py
-RUN apk add coreutils --no-cache
+RUN chmod +x docker-entrypoint.sh
+RUN chmod 777 docker-entrypoint.sh
 
 VOLUME /srv/nuvlabox/shared
 
 ONBUILD RUN ./license.sh
 
-ENTRYPOINT ["./security_main.py"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
