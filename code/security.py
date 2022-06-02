@@ -110,7 +110,6 @@ class Security:
             [db for db in os.listdir(self.settings.vulscan_db_dir) if
              db.startswith('cve.csv.')]
 
-
     def authenticate(self):
         """ Uses the NB ApiKey credential to authenticate against Nuvla
 
@@ -265,7 +264,8 @@ class Security:
                     it_date = datetime.strptime(date_file.read(),
                                                 self.settings.date_format)
                     self.gather_external_db_file_names()
-
+                    if not self.vulscan_dbs:
+                        return datetime(1970, 1, 1)
                     return it_date
                 except ValueError:
                     return datetime(1970, 1, 1)
