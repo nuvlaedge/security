@@ -319,22 +319,15 @@ class Security:
             service = port.find('service')
             service_attrs = service.attrib
 
-            product = ''
-            if service_attrs.get('product'):
-                product += service_attrs['product']
-
-            if service_attrs.get('version'):
-                product += f' {service_attrs["version"]}'
-
-            if not product:
-                continue
+            product: str = service_attrs.get('product', '')
+            product += f' {service_attrs.get("version", "")}'
 
             script = port.find('script')
             try:
                 output = script.attrib.get('output')
             except AttributeError:
                 continue
-            if output:
+            if output and product:
                 output = re.sub('cve.*.csv.*:\n', '', output).replace(' |nb| \n\n', '')
                 vulnerabilities_found = output.split(' |nb| ')
                 self.logger.info(f"Parsing list of found vulnerabilities for {product}")
@@ -343,17 +336,14 @@ class Security:
                     vuln_attrs = vuln.split(' |,| ')
 
                     try:
-                        id, description = vuln_attrs[0:2]
+                        vulnerability_id, description = vuln_attrs[0:2]
                         score = vuln_attrs[-1]
                     except (IndexError, ValueError) as ex:
                         self.logger.error(
                             f"Failed to parse vulnerability {vuln_attrs}: {str(ex)}")
                         continue
 
-                    vulnerability_info['vulnerability-id'] = id
-                    # if description:
-                    #     vulnerability_info['vulnerability-description'] = description
-                    #
+                    vulnerability_info['vulnerability-id'] = vulnerability_id
                     if score:
                         try:
                             vulnerability_info['vulnerability-score'] = float(score)
