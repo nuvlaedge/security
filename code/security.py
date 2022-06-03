@@ -1,48 +1,29 @@
 """
 Module for the security scanner class
 """
-from contextlib import contextmanager
 from datetime import datetime
 import json
 import logging
 import os
 import re
-import requests
 import shutil
-import signal
 from subprocess import run, PIPE, STDOUT, Popen, CompletedProcess, TimeoutExpired, \
     SubprocessError
 from threading import Event
 import time
 from typing import List, Dict, Union
 from xml.etree import ElementTree
+import requests
 
 from nuvla.api import Api
 from pydantic import BaseSettings, Field
 
 
-@contextmanager
-def timeout(timeout_time):
-    # Register a function to raise a TimeoutError on the signal.
-    signal.signal(signal.SIGALRM, raise_timeout)
-    # Schedule the signal to be sent after ``time``.
-    signal.alarm(timeout_time)
-
-    try:
-        yield
-    except TimeoutError:
-        raise TimeoutError
-    finally:
-        # Unregister the signal so it won't be triggered
-        # if the timeout is not reached.
-        signal.signal(signal.SIGALRM, signal.SIG_IGN)
-
-
-def raise_timeout(signum, frame):
-    raise TimeoutError
-
-
 class SecuritySettings(BaseSettings):
+    """
+    Wrapper class for the common security static configuration
+    """
+
     # File locations
     data_volume: str = "/srv/nuvlabox/shared"
     vulnerabilities_file: str = f'{data_volume}/vulnerabilities'
@@ -69,14 +50,18 @@ class SecuritySettings(BaseSettings):
     slice_size: int = Field(20, env='DB_SLICE_SIZE')
 
     # Database files
-    raw_vulnerabilities_gz: str = f'/tmp/raw_vulnerabilities.gz'
-    raw_vulnerabilities: str = f'/tmp/raw_vulnerabilities'
+    raw_vulnerabilities_gz: str = '/tmp/raw_vulnerabilities.gz'
+    raw_vulnerabilities: str = '/tmp/raw_vulnerabilities'
     vulscan_out_file: str = f'{data_volume}/nmap-vulscan-out-xml'
     vulscan_db_dir: str = Field('', env='VULSCAN_DB_DIR')
     online_vulscan_db_prefix: str = 'cve_online.csv.'
     external_db: str
 
     class Config:
+        """
+        Auxiliary class to allow the dataclass env. configurable variables to gather
+        values from more than one inscance
+        """
         fields = {
             'external_db': {
                 'env': ['EXTERNAL_CSV_VULNERABILITY_DB', 'EXTERNAL_CVE_VULNERABILITY_DB']
@@ -96,7 +81,7 @@ class Security:
 
         self.nuvla_endpoint: str = ''
         self.nuvla_endpoint_insecure: bool = False
-        self.logger.info(f'')
+
         self.wait_for_nuvlabox_ready()
         self.api: Api = self.authenticate()
 
@@ -122,7 +107,7 @@ class Security:
                            reauthenticate=True)
 
         if os.path.exists(self.settings.apikey_file):
-            with open(self.settings.apikey_file) as api_file:
+            with open(self.settings.apikey_file, encoding='UTF-8') as api_file:
                 apikey = json.loads(api_file.read())
         else:
             return None
@@ -137,8 +122,6 @@ class Security:
         :return: nuvla endpoint and nuvla endpoint insecure boolean
         """
 
-        # wait for 60 seconds max
-        # with timeout(60):
         self.logger.info('Waiting for NuvlaBox to bootstrap')
         while not os.path.exists(self.settings.apikey_file):
             time.sleep(5)
@@ -151,7 +134,7 @@ class Security:
 
         # If we get here, it means both files have been written, and we can finally
         # get Nuvla's conf parameters
-        with open(self.settings.nuvla_conf_file) as nuvla_conf:
+        with open(self.settings.nuvla_conf_file, encoding='UTF-8') as nuvla_conf:
             for line in nuvla_conf.read().split():
                 try:
                     if line and 'NUVLA_ENDPOINT=' in line:
@@ -172,7 +155,8 @@ class Security:
         """
         try:
             if method_flag:
-                return run(command, stdout=PIPE, stderr=STDOUT, encoding='UTF-8')
+                return run(command, stdout=PIPE, stderr=STDOUT, encoding='UTF-8',
+                           check=True)
 
             with Popen(command, stdout=PIPE, stderr=PIPE) as shell_pipe:
                 stdout, stderr = shell_pipe.communicate()
@@ -196,19 +180,22 @@ class Security:
         return None
 
     def get_external_db_as_csv(self):
+        """
+            Updates or gets the local database from the provided URL
+        """
         # Download external DB
         download_command: List = ['wget',
                                   self.settings.external_db.lstrip('"').rstrip('"'),
                                   '-O', self.settings.raw_vulnerabilities_gz]
         response = self.execute_cmd(download_command)
         if response.returncode != 0:
-            self.logger.error(f'Not properly downloaded')
+            self.logger.error('Not properly downloaded')
 
         # Uncompress external db
         unzip_command: List = ['gzip', '-d', self.settings.raw_vulnerabilities_gz]
         response = self.execute_cmd(unzip_command)
         if response.returncode != 0:
-            self.logger.error(f'Not properly uncompressed')
+            self.logger.error('Not properly uncompressed')
             self.logger.error(f'{response.stdout}')
             self.logger.error(f'{response.stderr}')
 
@@ -218,13 +205,13 @@ class Security:
                                '--additional-suffix=.cve_online.csv']
         response = self.execute_cmd(split_command)
         if response.returncode != 0:
-            self.logger.error(f'Not properly split')
+            self.logger.error('Not properly split')
 
         else:
             split_files: List = \
                 [f for f in os.listdir('/opt/nuvlabox') if f.startswith('x')]
             renamed_files: List = []
-            for i, file_name in enumerate(split_files):
+            for i, _ in enumerate(split_files):
                 renamed_files.append(self.settings.online_vulscan_db_prefix + str(i))
 
             self.logger.error(f'{split_files}')
@@ -253,13 +240,25 @@ class Security:
                 self.previous_external_db_update.strftime(self.settings.date_format))
 
     def gather_external_db_file_names(self):
+        """
+        Tries to find the local split files and updates the local variable containing
+        the file names
+        """
         it_content: List[str] = os.listdir(self.settings.nmap_script_path)
         it_content = [f for f in it_content if
                       f.startswith(self.settings.online_vulscan_db_prefix)]
         self.vulscan_dbs = sorted(it_content)
 
     def get_previous_external_db_update(self) -> datetime:
-        self.logger.info(f'Retrieving previously updated db date')
+        """
+        Reads a local file seeking for the date of the last time the db was updated. If
+        no file exists, returns the oldest possible date
+
+        Returns: a datetime object containing the last time the local updated
+        vulnerabilities database
+
+        """
+        self.logger.info('Retrieving previously updated db date')
         if os.path.exists(self.settings.external_db_update_file):
             with open(self.settings.external_db_update_file, 'r', encoding="utf-8") \
                     as date_file:
@@ -294,7 +293,7 @@ class Security:
 
         if self.local_db_last_update and \
                 temp_db_last_update < self.local_db_last_update:
-            self.logger.info(f'Database recently updated')
+            self.logger.info('Database recently updated')
             return
 
         self.logger.info(f"Fetching and extracting {self.settings.external_db}")
@@ -310,14 +309,13 @@ class Security:
         if not os.path.exists(self.settings.vulscan_out_file):
             return None
 
-        root = ElementTree.parse(self.settings.vulscan_out_file).getroot()
-        ports = root.findall('host/ports/port')
+        ports = ElementTree.parse(self.settings.vulscan_out_file)\
+            .getroot().findall('host/ports/port')
 
         vulnerabilities = []
         for port in ports:
 
-            service = port.find('service')
-            service_attrs = service.attrib
+            service_attrs = port.find('service').attrib
 
             product: str = service_attrs.get('product', '')
             product += f' {service_attrs.get("version", "")}'
@@ -336,7 +334,7 @@ class Security:
                     vuln_attrs = vuln.split(' |,| ')
 
                     try:
-                        vulnerability_id, description = vuln_attrs[0:2]
+                        vulnerability_id, _ = vuln_attrs[0:2]
                         score = vuln_attrs[-1]
                     except (IndexError, ValueError) as ex:
                         self.logger.error(
@@ -365,14 +363,18 @@ class Security:
 
         :returns """
 
-        nmap_out = run(cmd, stdout=PIPE, stderr=STDOUT, encoding='UTF-8')
+        nmap_out = run(cmd, stdout=PIPE, stderr=STDOUT, encoding='UTF-8', check=False)
 
         if nmap_out.returncode != 0 or not nmap_out.stdout:
             return False
-        else:
-            return True
+        return True
 
     def run_scan(self):
+        """
+        Iterates the stored files and seeks vulnerabilities by calling the nmap commannd
+        Returns:
+
+        """
         temp_vulnerabilities: List = []
 
         for vulscan_db in self.vulscan_dbs:
@@ -409,5 +411,6 @@ class Security:
                                     f"{send_vuln_url} due to {ex}")
                 self.logger.warning(f"Saving vulnerabilities to local file instead: "
                                     f"{self.settings.vulnerabilities_file}")
-                with open(self.settings.vulnerabilities_file, 'w') as vf:
-                    vf.write(json.dumps(temp_vulnerabilities))
+                with open(self.settings.vulnerabilities_file, 'w', encoding='UTF-8') \
+                        as file:
+                    file.write(json.dumps(temp_vulnerabilities))

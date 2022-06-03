@@ -5,10 +5,8 @@
 from datetime import datetime
 import logging
 import sys
-import threading
-import time
 
-from security import Security, SecuritySettings
+from security import Security
 
 
 def set_logger(logger_name: str = 'security') -> logging.Logger:
@@ -32,23 +30,24 @@ def set_logger(logger_name: str = 'security') -> logging.Logger:
 
 
 def main():
+    """
+    Main wrapper to control the security class
+    """
     # Wait before starting doing anything
     logger: logging.Logger = set_logger()
 
     security: Security = Security(logger)
 
-    logger.info(f'Starting NuvlaEdge security scan in '
-                f'{security.settings.scan_period} seconds')
+    logger.info('Starting NuvlaEdge security scan')
 
     if security.settings.external_db and security.nuvla_endpoint and \
         (datetime.utcnow() - security.previous_external_db_update)\
             .total_seconds() > security.settings.external_db_update_period:
-        logger.info(f'Checking for updates on the vulnerability DB')
+        logger.info('Checking for updates on the vulnerability DB')
         security.update_vulscan_db()
 
-    logger.info(f'Running vulnerability scan')
+    logger.info('Running vulnerability scan')
     security.run_scan()
-    logger.info(f'Waiting for next in  {security.settings.scan_period}')
 
 
 if __name__ == '__main__':
