@@ -42,8 +42,8 @@ RUN gunzip -c ${VULSCAN_DB_DIR}/all.aggregated.csv.gz > ${VULSCAN_DB_DIR}/cve.cs
       rm -f ${VULSCAN_DB_DIR}/cve.csv
 
 
-RUN chmod +x docker-entrypoint.sh
-RUN chmod 777 docker-entrypoint.sh
+RUN chmod +x security-entrypoint.sh
+RUN chmod 777 security-entrypoint.sh
 
 VOLUME /srv/nuvlabox/shared
 
