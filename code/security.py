@@ -31,7 +31,7 @@ def timeout(timeout_time):
     try:
         yield
     except TimeoutError:
-        raise
+        raise TimeoutError
     finally:
         # Unregister the signal so it won't be triggered
         # if the timeout is not reached.
@@ -69,6 +69,8 @@ class SecuritySettings(BaseSettings):
     slice_size: int = Field(20, env='DB_SLICE_SIZE')
 
     # Database files
+    raw_vulnerabilities_gz: str = f'/tmp/raw_vulnerabilities.gz'
+    raw_vulnerabilities: str = f'/tmp/raw_vulnerabilities'
     vulscan_out_file: str = f'{data_volume}/nmap-vulscan-out-xml'
     vulscan_db_dir: str = Field('', env='VULSCAN_DB_DIR')
     online_vulscan_db_prefix: str = 'cve_online.csv.'
@@ -197,13 +199,13 @@ class Security:
         # Download external DB
         download_command: List = ['wget',
                                   self.settings.external_db.lstrip('"').rstrip('"'),
-                                  '-O', '/tmp/raw_vulnerabilities.gz']
+                                  '-O', self.settings.raw_vulnerabilities_gz]
         response = self.execute_cmd(download_command)
         if response.returncode != 0:
             self.logger.error(f'Not properly downloaded')
 
         # Uncompress external db
-        unzip_command: List = ['gzip', '-d', '/tmp/raw_vulnerabilities.gz']
+        unzip_command: List = ['gzip', '-d', self.settings.raw_vulnerabilities_gz]
         response = self.execute_cmd(unzip_command)
         if response.returncode != 0:
             self.logger.error(f'Not properly uncompressed')
@@ -211,7 +213,8 @@ class Security:
             self.logger.error(f'{response.stderr}')
 
         # Split file in smaller files
-        split_command: List = ['split', '-l', '20000', '-d', '/tmp/raw_vulnerabilities',
+        split_command: List = ['split', '-l', '20000', '-d',
+                               self.settings.raw_vulnerabilities,
                                '--additional-suffix=.cve_online.csv']
         response = self.execute_cmd(split_command)
         if response.returncode != 0:
@@ -232,8 +235,8 @@ class Security:
                             f'{self.settings.vulscan_db_dir}/{new}')
 
             self.vulscan_dbs = renamed_files
-        if os.path.exists('/tmp/raw_vulnerabilities'):
-            os.remove('/tmp/raw_vulnerabilities')
+        if os.path.exists(self.settings.raw_vulnerabilities):
+            os.remove(self.settings.raw_vulnerabilities)
         self.set_previous_external_db_update()
 
     def set_previous_external_db_update(self):
@@ -301,7 +304,6 @@ class Security:
         """ Parses the nmap output XML file and gives back the list of formatted
         vulnerabilities
 
-        :param file: path to XML file
         :return: list of CVE vulnerabilities
         """
 
@@ -313,6 +315,7 @@ class Security:
 
         vulnerabilities = []
         for port in ports:
+
             service = port.find('service')
             service_attrs = service.attrib
 
@@ -391,8 +394,7 @@ class Security:
                  f'vulscandb={vulscan_db},vulscanoutput=nuvlabox-cve,vulscanshowall=1',
                  'localhost',
                  '--exclude-ports', '5080',
-                 '-oX', self.settings.vulscan_out_file,
-                 '--release-memory']
+                 '-oX', self.settings.vulscan_out_file]
 
             # 1 - get CVE vulnerabilities
             self.logger.info(f"Running nmap Vulscan: {nmap_scan_cmd}")
@@ -406,13 +408,15 @@ class Security:
 
         self.logger.info(f'Found {len(temp_vulnerabilities)} vulnerabilities')
         if temp_vulnerabilities:
+            send_vuln_url: str = ''
             try:
                 send_vuln_url = f"http://{self.agent_api_endpoint}/" \
                                 f"api/set-vulnerabilities"
-                response = requests.post(send_vuln_url, json=temp_vulnerabilities)
-            except:
-                self.logger.exception(f"Unable to send vulnerabilities to Agent via "
-                                      f"{send_vuln_url}")
+                _ = requests.post(send_vuln_url, json=temp_vulnerabilities)
+
+            except requests.exceptions.RequestException as ex:
+                self.logger.warning(f"Unable to send vulnerabilities to Agent via "
+                                    f"{send_vuln_url} due to {ex}")
                 self.logger.warning(f"Saving vulnerabilities to local file instead: "
                                     f"{self.settings.vulnerabilities_file}")
                 with open(self.settings.vulnerabilities_file, 'w') as vf:
