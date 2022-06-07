@@ -1,4 +1,4 @@
-FROM python:3-alpine3.12
+FROM python:3.9.13-slim-buster
 
 ARG GIT_BRANCH
 ARG GIT_COMMIT_ID
@@ -19,7 +19,9 @@ LABEL org.opencontainers.image.vendor="SixSq SA"
 LABEL org.opencontainers.image.title="NuvlaBox Security"
 LABEL org.opencontainers.image.description="Regularly scans the edge device for CVE-based vulnerabilities"
 
-RUN apk update && apk add --no-cache nmap nmap-scripts coreutils
+RUN apt-get update
+RUN apt-get install -y nmap coreutils
+RUN apt-get clean && apt-get autoremove
 
 COPY vulscan /usr/share/nmap/scripts/vulscan
 

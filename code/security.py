@@ -50,8 +50,8 @@ class SecuritySettings(BaseSettings):
     slice_size: int = Field(20, env='DB_SLICE_SIZE')
 
     # Database files
-    raw_vulnerabilities_gz: str = '/tmp/raw_vulnerabilities.gz'
-    raw_vulnerabilities: str = '/tmp/raw_vulnerabilities'
+    raw_vulnerabilities_gz: str = '/opt/nuvlabox/raw_vulnerabilities.gz'
+    raw_vulnerabilities: str = '/opt/nuvlabox/raw_vulnerabilities'
     vulscan_out_file: str = f'{data_volume}/nmap-vulscan-out-xml'
     vulscan_db_dir: str = Field('', env='VULSCAN_DB_DIR')
     online_vulscan_db_prefix: str = 'cve_online.csv.'
@@ -83,8 +83,7 @@ class Security:
         self.nuvla_endpoint_insecure: bool = False
 
         self.wait_for_nuvlabox_ready()
-        self.api: Api = self.authenticate()
-
+        self.api: Union[Api, None] = None
         self.event: Event = Event()
 
         self.local_db_last_update = None
@@ -144,8 +143,7 @@ class Security:
                 except IndexError:
                     pass
 
-    @staticmethod
-    def execute_cmd(command: List[str], method_flag: bool = True) \
+    def execute_cmd(self, command: List[str], method_flag: bool = True) \
             -> Union[Dict, CompletedProcess, None]:
         """ Shell wrapper to execute a command
 
@@ -153,6 +151,7 @@ class Security:
         @param method_flag: flag to switch between run and Popen command execution
         @return: all outputs
         """
+        self.logger.info(f'Executing command {command}')
         try:
             if method_flag:
                 return run(command, stdout=PIPE, stderr=STDOUT, encoding='UTF-8',
@@ -160,7 +159,7 @@ class Security:
 
             with Popen(command, stdout=PIPE, stderr=PIPE) as shell_pipe:
                 stdout, stderr = shell_pipe.communicate()
-
+                self.logger.info(f' Return {stdout.decode("UTF-8")}')
                 return {'stdout': stdout,
                         'stderr': stderr,
                         'returncode': shell_pipe.returncode}
@@ -184,11 +183,12 @@ class Security:
             Updates or gets the local database from the provided URL
         """
         # Download external DB
-        download_command: List = ['wget',
+        download_command: List = ['curl', '-L',
                                   self.settings.external_db.lstrip('"').rstrip('"'),
-                                  '-O', self.settings.raw_vulnerabilities_gz]
-        response = self.execute_cmd(download_command)
-        if response.returncode != 0:
+                                  '--output', self.settings.raw_vulnerabilities_gz]
+
+        response = self.execute_cmd(download_command, method_flag=False)
+        if response.get('returncode') != 0:
             self.logger.error('Not properly downloaded')
 
         # Uncompress external db
@@ -196,15 +196,15 @@ class Security:
         response = self.execute_cmd(unzip_command)
         if response.returncode != 0:
             self.logger.error('Not properly uncompressed')
-            self.logger.error(f'{response.stdout}')
-            self.logger.error(f'{response.stderr}')
+
 
         # Split file in smaller files
-        split_command: List = ['split', '-l', '20000', '-d',
+        split_command: List = ['split', '-u', '-l', '20000', '-d',
                                self.settings.raw_vulnerabilities,
                                '--additional-suffix=.cve_online.csv']
-        response = self.execute_cmd(split_command)
-        if response.returncode != 0:
+        response = self.execute_cmd(split_command, method_flag=False)
+
+        if response.get('returncode') != 0:
             self.logger.error('Not properly split')
 
         else:
@@ -222,6 +222,7 @@ class Security:
                             f'{self.settings.vulscan_db_dir}/{new}')
 
             self.vulscan_dbs = renamed_files
+
         if os.path.exists(self.settings.raw_vulnerabilities):
             os.remove(self.settings.raw_vulnerabilities)
         self.set_previous_external_db_update()
@@ -229,7 +230,7 @@ class Security:
     def set_previous_external_db_update(self):
         """
         Called when the external databased is updated. It updates a local variable and
-        and persistent file with the update date of the external db
+        persistent file with the update date of the external db
         """
         self.previous_external_db_update = datetime.utcnow()
         if not os.path.exists(self.settings.security_folder):
@@ -277,9 +278,11 @@ class Security:
     def update_vulscan_db(self):
         """ Updates the local registry of the vulnerabilities data """
 
+        self.api = self.authenticate()
         nuvla_vul_db: List = self.api.search('vulnerability',
                                              orderby='modified:desc',
                                              last=1).resources
+        self.api.logout()
 
         if not nuvla_vul_db:
             self.logger.warning(f'Nuvla endpoint {self.nuvla_endpoint} does not '
@@ -359,14 +362,16 @@ class Security:
         """ Runs the vulscan nmap scan against localhost and
         save the result to an XML file
 
-        :param cmd: nmap command to be executed, in exec format
 
         :returns """
 
-        nmap_out = run(cmd, stdout=PIPE, stderr=STDOUT, encoding='UTF-8', check=False)
+        # nmap_out = run(cmd, stdout=PIPE, stderr=STDOUT, encoding='UTF-8', check=False)
 
-        if nmap_out.returncode != 0 or not nmap_out.stdout:
-            return False
+        with Popen(cmd, stdout=PIPE, stderr=PIPE) as shell_pipe:
+            stdout, stderr = shell_pipe.communicate()
+
+            if shell_pipe.returncode != 0 or not stdout:
+                return False
         return True
 
     def run_scan(self):
