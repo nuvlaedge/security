@@ -197,14 +197,13 @@ class Security:
         if response.returncode != 0:
             self.logger.error('Not properly uncompressed')
 
-
         # Split file in smaller files
         split_command: List = ['split', '-u', '-l', '20000', '-d',
                                self.settings.raw_vulnerabilities,
                                '--additional-suffix=.cve_online.csv']
-        response = self.execute_cmd(split_command, method_flag=False)
+        response = self.execute_cmd(split_command)
 
-        if response.get('returncode') != 0:
+        if response.returncode != 0:
             self.logger.error('Not properly split')
 
         else:
@@ -225,6 +224,7 @@ class Security:
 
         if os.path.exists(self.settings.raw_vulnerabilities):
             os.remove(self.settings.raw_vulnerabilities)
+
         self.set_previous_external_db_update()
 
     def set_previous_external_db_update(self):
@@ -364,8 +364,6 @@ class Security:
 
 
         :returns """
-
-        # nmap_out = run(cmd, stdout=PIPE, stderr=STDOUT, encoding='UTF-8', check=False)
 
         with Popen(cmd, stdout=PIPE, stderr=PIPE) as shell_pipe:
             stdout, stderr = shell_pipe.communicate()
