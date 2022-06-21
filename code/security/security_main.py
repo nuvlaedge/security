@@ -6,7 +6,7 @@ from datetime import datetime
 import logging
 import sys
 
-from security import Security
+from .security import Security
 
 
 def set_logger(logger_name: str = 'security') -> logging.Logger:

@@ -1,7 +1,9 @@
 """
 Module for the security scanner class
 """
+from contextlib import contextmanager
 from datetime import datetime
+import signal
 import json
 import logging
 import os
@@ -17,6 +19,27 @@ import requests
 
 from nuvla.api import Api
 from pydantic import BaseSettings, Field
+
+
+@contextmanager
+def timeout(t_time):
+    # Register a function to raise a TimeoutError on the signal.
+    signal.signal(signal.SIGALRM, raise_timeout)
+    # Schedule the signal to be sent after ``time``.
+    signal.alarm(t_time)
+
+    try:
+        yield
+    except TimeoutError:
+        raise
+    finally:
+        # Unregister the signal so it won't be triggered
+        # if the timeout is not reached.
+        signal.signal(signal.SIGALRM, signal.SIG_IGN)
+
+
+def raise_timeout(signum, frame):
+    raise TimeoutError
 
 
 class SecuritySettings(BaseSettings):
@@ -79,6 +102,7 @@ class Security:
         self.agent_api_endpoint: str = 'localhost:5080' if not \
             self.settings.kubernetes_service_host else f'agent.{self.settings.namespace}'
 
+        self.timeout_wait_time: int = 60
         self.nuvla_endpoint: str = ''
         self.nuvla_endpoint_insecure: bool = False
 
@@ -120,16 +144,16 @@ class Security:
 
         :return: nuvla endpoint and nuvla endpoint insecure boolean
         """
+        with timeout(self.timeout_wait_time):
+            self.logger.info('Waiting for NuvlaBox to bootstrap')
+            while not os.path.exists(self.settings.apikey_file):
+                time.sleep(5)
 
-        self.logger.info('Waiting for NuvlaBox to bootstrap')
-        while not os.path.exists(self.settings.apikey_file):
-            time.sleep(5)
+            self.logger.info('Waiting and searching for Nuvla connection parameters '
+                             'after NuvlaBox activation')
 
-        self.logger.info('Waiting and searching for Nuvla connection parameters '
-                         'after NuvlaBox activation')
-
-        while not os.path.exists(self.settings.nuvla_conf_file):
-            time.sleep(5)
+            while not os.path.exists(self.settings.nuvla_conf_file):
+                time.sleep(5)
 
         # If we get here, it means both files have been written, and we can finally
         # get Nuvla's conf parameters
@@ -212,9 +236,6 @@ class Security:
             renamed_files: List = []
             for i, _ in enumerate(split_files):
                 renamed_files.append(self.settings.online_vulscan_db_prefix + str(i))
-
-            self.logger.error(f'{split_files}')
-            self.logger.error(f'{renamed_files}')
 
             for old, new in zip(split_files, renamed_files):
                 shutil.move(f'/opt/nuvlabox/{old}',
@@ -326,9 +347,11 @@ class Security:
             script = port.find('script')
             try:
                 output = script.attrib.get('output')
+
             except AttributeError:
                 continue
             if output and product:
+
                 output = re.sub('cve.*.csv.*:\n', '', output).replace(' |nb| \n\n', '')
                 vulnerabilities_found = output.split(' |nb| ')
                 self.logger.info(f"Parsing list of found vulnerabilities for {product}")
@@ -342,6 +365,7 @@ class Security:
                     except (IndexError, ValueError) as ex:
                         self.logger.error(
                             f"Failed to parse vulnerability {vuln_attrs}: {str(ex)}")
+
                         continue
 
                     vulnerability_info['vulnerability-id'] = vulnerability_id
