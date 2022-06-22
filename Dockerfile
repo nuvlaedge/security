@@ -19,7 +19,7 @@ LABEL org.opencontainers.image.vendor="SixSq SA"
 LABEL org.opencontainers.image.title="NuvlaBox Security"
 LABEL org.opencontainers.image.description="Regularly scans the edge device for CVE-based vulnerabilities"
 
-RUN apk update && apk add --no-cache nmap nmap-scripts coreutils
+RUN apk update && apk add --no-cache nmap nmap-scripts coreutils curl
 
 COPY vulscan /usr/share/nmap/scripts/vulscan
 
