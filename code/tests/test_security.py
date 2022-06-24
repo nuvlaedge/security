@@ -81,16 +81,11 @@ class TestSecurity(TestCase):
             self.assertTrue(test_security.nuvla_endpoint_insecure)
 
     @patch('security.security.run')
-    @patch('security.security.Popen')
-    def test_execute_cmd(self, popen_ex, run_ex):
+    def test_execute_cmd(self, run_ex):
         test_security: Security = self.setup()
         test_security.execute_cmd([])
         self.assertEqual(run_ex.call_count, 1)
         run_ex.reset_mock()
-
-        popen_ex.return_value.__enter__.return_value.communicate.return_value = \
-            (Mock(), Mock())
-        self.assertIsInstance(test_security.execute_cmd([], method_flag=False), dict)
 
         run_ex.side_effect = OSError
         self.assertIsNone(test_security.execute_cmd([]))

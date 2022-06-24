@@ -43,7 +43,7 @@ RUN gunzip -c ${VULSCAN_DB_DIR}/all.aggregated.csv.gz > ${VULSCAN_DB_DIR}/cve.cs
 
 
 RUN chmod +x security-entrypoint.sh
-RUN chmod 777 security-entrypoint.sh
+RUN chmod 555 security-entrypoint.sh
 
 VOLUME /srv/nuvlabox/shared
 

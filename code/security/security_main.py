@@ -9,15 +9,16 @@ import sys
 from .security import Security
 
 
-def set_logger(logger_name: str = 'security') -> logging.Logger:
+def set_logger(logger_name: str = 'security', log_level: int = logging.INFO) \
+        -> logging.Logger:
     """ Configures logging """
     # give logger a name: app
     root = logging.getLogger(logger_name)
-    root.setLevel(logging.DEBUG)
+    root.setLevel(log_level)
 
     # print to console
     c_handler = logging.StreamHandler(sys.stdout)
-    c_handler.setLevel(logging.DEBUG)
+    c_handler.setLevel(log_level)
 
     # format log messages
     formatter = logging.Formatter('%(levelname)s - %(funcName)s - %(message)s')

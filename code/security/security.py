@@ -10,7 +10,7 @@ import os
 import re
 import shutil
 from subprocess import run, PIPE, STDOUT, Popen, CompletedProcess, TimeoutExpired, \
-    SubprocessError
+    SubprocessError, CalledProcessError
 from threading import Event
 import time
 from typing import List, Dict, Union
@@ -167,7 +167,7 @@ class Security:
                 except IndexError:
                     pass
 
-    def execute_cmd(self, command: List[str], method_flag: bool = True) \
+    def execute_cmd(self, command: List[str]) \
             -> Union[Dict, CompletedProcess, None]:
         """ Shell wrapper to execute a command
 
@@ -177,16 +177,8 @@ class Security:
         """
         self.logger.info(f'Executing command {command}')
         try:
-            if method_flag:
-                return run(command, stdout=PIPE, stderr=STDOUT, encoding='UTF-8',
-                           check=True)
-
-            with Popen(command, stdout=PIPE, stderr=PIPE) as shell_pipe:
-                stdout, stderr = shell_pipe.communicate()
-                self.logger.info(f' Return {stdout.decode("UTF-8")}')
-                return {'stdout': stdout,
-                        'stderr': stderr,
-                        'returncode': shell_pipe.returncode}
+            return run(command, stdout=PIPE, stderr=STDOUT, encoding='UTF-8',
+                       check=True)
 
         except OSError as ex:
             logging.error(f"Trying to execute non existent file: {ex}")
@@ -211,26 +203,29 @@ class Security:
                                   self.settings.external_db.lstrip('"').rstrip('"'),
                                   '--output', self.settings.raw_vulnerabilities_gz]
 
-        response = self.execute_cmd(download_command, method_flag=False)
-        if response.get('returncode') != 0:
-            self.logger.error('Not properly downloaded')
-
         # Uncompress external db
         unzip_command: List = ['gzip', '-d', self.settings.raw_vulnerabilities_gz]
-        response = self.execute_cmd(unzip_command)
-        if response.returncode != 0:
-            self.logger.error('Not properly uncompressed')
 
         # Split file in smaller files
         split_command: List = ['split', '-u', '-l', '20000', '-d',
                                self.settings.raw_vulnerabilities,
                                '--additional-suffix=.cve_online.csv']
-        response = self.execute_cmd(split_command)
 
-        if response.returncode != 0:
-            self.logger.error('Not properly split')
+        try:
+            # Download full db
+            self.execute_cmd(download_command)
+
+            # Uncompress DB
+            self.execute_cmd(unzip_command)
+
+            # Split DB
+            self.execute_cmd(split_command)
+
+        except CalledProcessError:
+            self.logger.exception('External database update process returned an error')
 
         else:
+
             split_files: List = \
                 [f for f in os.listdir('/opt/nuvlabox') if f.startswith('x')]
             renamed_files: List = []
