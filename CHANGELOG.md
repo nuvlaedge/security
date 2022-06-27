@@ -1,8 +1,7 @@
 # Changelog
-## Unreleased
+## [2.0.0] - 2022-06-27
 ### Added
- - Refactored main script. Added a Security class to control module settings in a static 
-way
+ - Refactored main script. Added a Security class to control module settings in a static way
  - Added entry-point script to reset memory consumption of python
 ### Changed
  - DB update process externalized to curl and gzip programs
