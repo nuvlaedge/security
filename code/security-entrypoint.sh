@@ -4,7 +4,7 @@ while [ true ]; do
     echo "Sleeping for 1 secs"
     sleep 1
 
-    python security_main.py $@
+    python security/security_main.py $@
     exit_code=$?
 
     if [ $exit_code -ne 0 ]; then
