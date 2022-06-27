@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """ Security scan Main script"""
+import os
 from datetime import datetime
 import logging
 import sys
@@ -35,7 +36,10 @@ def main():
     Main wrapper to control the security class
     """
     # Wait before starting doing anything
-    logger: logging.Logger = set_logger()
+    if os.environ.get('DEBUG'):
+        logger: logging.Logger = set_logger(log_level=logging.DEBUG)
+    else:
+        logger: logging.Logger = set_logger()
 
     security: Security = Security(logger)
 
