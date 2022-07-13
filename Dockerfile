@@ -1,4 +1,5 @@
-FROM python:3-alpine3.12
+ARG BASE_IMAGE=python:3.8-alpine3.12
+FROM ${BASE_IMAGE}
 
 ARG GIT_BRANCH
 ARG GIT_COMMIT_ID
