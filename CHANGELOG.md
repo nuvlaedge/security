@@ -1,4 +1,8 @@
 # Changelog
+## [2.1.0] - 2022-07-18
+### Added
+### Changed
+ - Use common base image for all NE components
 ## [2.0.0] - 2022-06-27
 ### Added
  - Refactored main script. Added a Security class to control module settings in a static way
