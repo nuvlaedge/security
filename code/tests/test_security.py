@@ -17,7 +17,7 @@ from datetime import datetime
 class TestSecurity(TestCase):
     security_open: str = 'security.security.open'
 
-    @patch('security.Security.wait_for_nuvlabox_ready')
+    @patch('security.Security.wait_for_nuvlaedge_ready')
     @patch('os.listdir')
     @patch('os.path.exists')
     def setup(self, exists, list_dir, wait):
@@ -27,7 +27,7 @@ class TestSecurity(TestCase):
         exists.return_value = False
         return Security(logger)
 
-    @patch('security.Security.wait_for_nuvlabox_ready')
+    @patch('security.Security.wait_for_nuvlaedge_ready')
     @patch('os.listdir')
     def test_init(self, list_dir, wait_nb):
         test_security = self.setup()
@@ -55,28 +55,28 @@ class TestSecurity(TestCase):
             self.assertIsNotNone(test_security.authenticate())
 
     @patch('os.path.exists')
-    def test_wait_for_nuvlabox_ready(self, path_exists):
+    def test_wait_for_nuvlaedge_ready(self, path_exists):
         test_security: Security = self.setup()
         path_exists.return_value = False
         test_security.timeout_wait_time = 3
         with self.assertRaises(TimeoutError):
-            test_security.wait_for_nuvlabox_ready()
+            test_security.wait_for_nuvlaedge_ready()
 
         path_exists.return_value = True
 
         with patch(self.security_open, mock.mock_open(read_data='NU')):
-            test_security.wait_for_nuvlabox_ready()
+            test_security.wait_for_nuvlaedge_ready()
             self.assertFalse(test_security.nuvla_endpoint)
             self.assertFalse(test_security.nuvla_endpoint_insecure)
 
         with patch(self.security_open, mock.mock_open(read_data='NUVLA_ENDPOINT=4 BU')):
-            test_security.wait_for_nuvlabox_ready()
+            test_security.wait_for_nuvlaedge_ready()
             self.assertEqual(test_security.nuvla_endpoint, '4')
             self.assertFalse(test_security.nuvla_endpoint_insecure)
 
         with patch(self.security_open, mock.mock_open(
                 read_data='NUVLA_ENDPOINT=4 NUVLA_ENDPOINT_INSECURE=1')):
-            test_security.wait_for_nuvlabox_ready()
+            test_security.wait_for_nuvlaedge_ready()
             self.assertEqual(test_security.nuvla_endpoint, '4')
             self.assertTrue(test_security.nuvla_endpoint_insecure)
 
@@ -271,5 +271,3 @@ class TestSecurity(TestCase):
             self.assertEqual(req_post.call_count, 1)
             self.assertEqual(run_cve.call_count, 1)
             self.assertEqual(j_dump.call_count, 1)
-
-

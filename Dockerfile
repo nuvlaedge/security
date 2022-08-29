@@ -17,16 +17,16 @@ LABEL org.opencontainers.image.authors="support@sixsq.com"
 LABEL org.opencontainers.image.created=${GIT_BUILD_TIME}
 LABEL org.opencontainers.image.url=${PROJECT_URL}
 LABEL org.opencontainers.image.vendor="SixSq SA"
-LABEL org.opencontainers.image.title="NuvlaBox Security"
+LABEL org.opencontainers.image.title="NuvlaEdge Security"
 LABEL org.opencontainers.image.description="Regularly scans the edge device for CVE-based vulnerabilities"
 
 RUN apk update && apk add --no-cache nmap nmap-scripts coreutils curl
 
 COPY vulscan /usr/share/nmap/scripts/vulscan
 
-COPY code LICENSE /opt/nuvlabox/
+COPY code LICENSE /opt/nuvlaedge/
 
-WORKDIR /opt/nuvlabox
+WORKDIR /opt/nuvlaedge
 
 RUN pip install -r requirements.txt
 
@@ -46,7 +46,7 @@ RUN gunzip -c ${VULSCAN_DB_DIR}/all.aggregated.csv.gz > ${VULSCAN_DB_DIR}/cve.cs
 RUN chmod +x security-entrypoint.sh
 RUN chmod 555 security-entrypoint.sh
 
-VOLUME /srv/nuvlabox/shared
+VOLUME /srv/nuvlaedge/shared
 
 ONBUILD RUN ./license.sh
 

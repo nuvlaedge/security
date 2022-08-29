@@ -17,7 +17,7 @@ class TestSecurityMain(TestCase):
 
     @patch('security.Security.update_vulscan_db')
     @patch('security.Security.run_scan')
-    @patch('security.Security.wait_for_nuvlabox_ready')
+    @patch('security.Security.wait_for_nuvlaedge_ready')
     @patch('os.listdir')
     def test_main(self, list_dir, nb_ready, scan, update):
         os.environ['EXTERNAL_CSV_VULNERABILITY_DB'] = 'external_db'

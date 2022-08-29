@@ -11,7 +11,7 @@ services:
       - NUVLA_ENDPOINT=${NUVLA_ENDPOINT:-nuvla.io}
       - NUVLA_ENDPOINT_INSECURE=${NUVLA_ENDPOINT_INSECURE:-False}
     labels:
+      - nuvlaedge.component=True
+      - nuvlaedge.deployment=production
       - nuvlabox.component=True
       - nuvlabox.deployment=production
-
-

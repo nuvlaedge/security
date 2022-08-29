@@ -77,7 +77,7 @@ Copy the files into your vulscan folder:
 Clone the GitHub repository like this:
 
    git clone https://github.com/scipag/vulscan scipag_vulscan
-   ln -s `pwd`/scipag_vulscan /usr/share/nmap/scripts/vulscan    
+   ln -s `pwd`/scipag_vulscan /usr/share/nmap/scripts/vulscan
 
 VERSION DETECTION
 
@@ -261,7 +261,7 @@ action = function(host, port)
 			struct = "{link}\n"
 		elseif nmap.registry.args.vulscanoutput == "listtitle" then
 			struct = "{title}\n"
-    elseif nmap.registry.args.vulscanoutput == "nuvlabox-cve" then
+    elseif nmap.registry.args.vulscanoutput == "nuvlaedge-cve" then
       -- vulscanoutput doesn't seem to be supported by nmap. GitHub issue already created. In the meantime, patch:
       struct = '{id} |,| {title} |,| {score} |nb| '
 		else
@@ -512,7 +512,7 @@ function report_parsing(v, struct, link)
 	s = string.gsub(s, "{title}", escape(v.title))
 	s = string.gsub(s, "{score}", escape(v.score))
 	s = string.gsub(s, "{matches}", escape(v.matches))
-	s = string.gsub(s, "{product}", escape(v.product))	
+	s = string.gsub(s, "{product}", escape(v.product))
 	s = string.gsub(s, "{version}", escape(v.version))
 
 	return s

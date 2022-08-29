@@ -48,7 +48,7 @@ class SecuritySettings(BaseSettings):
     """
 
     # File locations
-    data_volume: str = "/srv/nuvlabox/shared"
+    data_volume: str = "/srv/nuvlaedge/shared"
     vulnerabilities_file: str = f'{data_volume}/vulnerabilities'
     security_folder: str = f'{data_volume}/security'
     external_db_update_file: str = f'{security_folder}/.vuln-db-update'
@@ -61,7 +61,7 @@ class SecuritySettings(BaseSettings):
 
     # Security configuration
     kubernetes_service_host: str = Field('', env='KUBERNETES_SERVICE_HOST')
-    namespace: str = Field('nuvlabox', env='MY_NAMESPACE')
+    namespace: str = Field('nuvlaedge', env='MY_NAMESPACE')
 
     # App periods
     default_interval: int = 300
@@ -73,8 +73,8 @@ class SecuritySettings(BaseSettings):
     slice_size: int = Field(20, env='DB_SLICE_SIZE')
 
     # Database files
-    raw_vulnerabilities_gz: str = '/opt/nuvlabox/raw_vulnerabilities.gz'
-    raw_vulnerabilities: str = '/opt/nuvlabox/raw_vulnerabilities'
+    raw_vulnerabilities_gz: str = '/opt/nuvlaedge/raw_vulnerabilities.gz'
+    raw_vulnerabilities: str = '/opt/nuvlaedge/raw_vulnerabilities'
     vulscan_out_file: str = f'{data_volume}/nmap-vulscan-out-xml'
     vulscan_db_dir: str = Field('', env='VULSCAN_DB_DIR')
     online_vulscan_db_prefix: str = 'cve_online.csv.'
@@ -106,7 +106,7 @@ class Security:
         self.nuvla_endpoint: str = ''
         self.nuvla_endpoint_insecure: bool = False
 
-        self.wait_for_nuvlabox_ready()
+        self.wait_for_nuvlaedge_ready()
         self.api: Union[Api, None] = None
         self.event: Event = Event()
 
@@ -139,18 +139,18 @@ class Security:
 
         return api_instance
 
-    def wait_for_nuvlabox_ready(self):
-        """ Waits on a loop for the NuvlaBox bootstrap and activation to be accomplished
+    def wait_for_nuvlaedge_ready(self):
+        """ Waits on a loop for the NuvlaEdge bootstrap and activation to be accomplished
 
         :return: nuvla endpoint and nuvla endpoint insecure boolean
         """
         with timeout(self.timeout_wait_time):
-            self.logger.info('Waiting for NuvlaBox to bootstrap')
+            self.logger.info('Waiting for NuvlaEdge to bootstrap')
             while not os.path.exists(self.settings.apikey_file):
                 time.sleep(5)
 
             self.logger.info('Waiting and searching for Nuvla connection parameters '
-                             'after NuvlaBox activation')
+                             'after NuvlaEdge activation')
 
             while not os.path.exists(self.settings.nuvla_conf_file):
                 time.sleep(5)
@@ -227,13 +227,13 @@ class Security:
         else:
 
             split_files: List = \
-                [f for f in os.listdir('/opt/nuvlabox') if f.startswith('x')]
+                [f for f in os.listdir('/opt/nuvlaedge') if f.startswith('x')]
             renamed_files: List = []
             for i, _ in enumerate(split_files):
                 renamed_files.append(self.settings.online_vulscan_db_prefix + str(i))
 
             for old, new in zip(split_files, renamed_files):
-                shutil.move(f'/opt/nuvlabox/{old}',
+                shutil.move(f'/opt/nuvlaedge/{old}',
                             f'{self.settings.vulscan_db_dir}/{new}')
 
             self.vulscan_dbs = renamed_files
@@ -405,7 +405,7 @@ class Security:
                  'nmap',
                  '-sV',
                  '--script', 'vulscan/', '--script-args',
-                 f'vulscandb={vulscan_db},vulscanoutput=nuvlabox-cve,vulscanshowall=1',
+                 f'vulscandb={vulscan_db},vulscanoutput=nuvlaedge-cve,vulscanshowall=1',
                  'localhost',
                  '--exclude-ports', '5080',
                  '-oX', self.settings.vulscan_out_file]

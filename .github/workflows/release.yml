@@ -1,5 +1,5 @@
-# Automatic release of NuvlaBox Engine, for every new tag
-name: "NuvlaBox Component Release"
+# Automatic release of NuvlaEdge Engine, for every new tag
+name: "NuvlaEdge Component Release"
 
 on:
   push:
