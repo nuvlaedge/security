@@ -13,5 +13,3 @@ services:
     labels:
       - nuvlaedge.component=True
       - nuvlaedge.deployment=production
-      - nuvlabox.component=True
-      - nuvlabox.deployment=production
