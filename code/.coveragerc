@@ -1,0 +1,6 @@
+[run]
+relative_files = True
+include =
+    security/*
+    tests/*
+branch = True
