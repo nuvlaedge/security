@@ -19,8 +19,8 @@ import requests
 
 from nuvla.api import Api
 from pydantic import BaseSettings, Field
-
 from nuvlaedge.common.constant_files import FILE_NAMES
+
 
 
 @contextmanager

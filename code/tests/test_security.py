@@ -9,7 +9,7 @@ import requests.exceptions
 from mock import patch, Mock
 from unittest import TestCase
 
-from security.security import Security
+from security import Security
 import os
 from datetime import datetime
 

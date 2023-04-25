@@ -1,4 +1,4 @@
-name: "NuvlaEdge Component Build"
+name: "NuvlaEdge Security Build"
 
 on:
   push:
@@ -85,13 +85,7 @@ jobs:
         run: pip install tox
 
       - name: Run tox
-        run: |
-          pip list
-
-      - run: |  
-          echo "import nuvlaedge" > test.py
-          python test.py
-#          tox
+        run: tox
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
