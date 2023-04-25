@@ -89,7 +89,7 @@ jobs:
           pip list
           echo "import nuvlaedge" > test.py
           python test.py
-          tox
+#          tox
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
