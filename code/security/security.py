@@ -409,7 +409,6 @@ class Security:
                  '--script', 'vulscan/', '--script-args',
                  f'vulscandb={vulscan_db},vulscanoutput=nuvlaedge-cve,vulscanshowall=1',
                  'localhost',
-                 '--exclude-ports', '5080',
                  '-oX', self.settings.vulscan_out_file]
 
             # 1 - get CVE vulnerabilities
