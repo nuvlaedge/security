@@ -19,6 +19,8 @@ import requests
 
 from nuvla.api import Api
 from pydantic import BaseSettings, Field
+from nuvlaedge.common.constant_files import FILE_NAMES
+
 
 
 @contextmanager
@@ -422,17 +424,5 @@ class Security:
 
         self.logger.info(f'Found {len(temp_vulnerabilities)} vulnerabilities')
         if temp_vulnerabilities:
-            send_vuln_url: str = ''
-            try:
-                send_vuln_url = f"http://{self.agent_api_endpoint}/" \
-                                f"api/set-vulnerabilities"
-                _ = requests.post(send_vuln_url, json=temp_vulnerabilities)
-
-            except requests.exceptions.RequestException as ex:
-                self.logger.warning(f"Unable to send vulnerabilities to Agent via "
-                                    f"{send_vuln_url} due to {ex}")
-                self.logger.warning(f"Saving vulnerabilities to local file instead: "
-                                    f"{self.settings.vulnerabilities_file}")
-                with open(self.settings.vulnerabilities_file, 'w', encoding='UTF-8') \
-                        as file:
-                    file.write(json.dumps(temp_vulnerabilities))
+            with open(FILE_NAMES.VULNERABILITIES_FILE, 'w', encoding='UTF-8') as file:
+                json.dump(temp_vulnerabilities, file)
